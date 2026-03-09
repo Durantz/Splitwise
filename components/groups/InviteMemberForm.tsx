@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Group, TextInput, Button, Text, Loader } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconUserPlus } from "@tabler/icons-react";
-import { inviteMember } from "@/app/(app)/groups/server";
+import { addMemberByEmail } from "@/app/(app)/groups/server";
 
 export default function InviteMemberForm({ groupId }: { groupId: string }) {
   const [email, setEmail] = useState("");
@@ -14,8 +14,11 @@ export default function InviteMemberForm({ groupId }: { groupId: string }) {
     if (!email.trim()) return;
     setLoading(true);
     try {
-      await inviteMember(groupId, email.trim());
-      notifications.show({ message: `${email} aggiunto al gruppo`, color: "green" });
+      await addMemberByEmail(groupId, email.trim());
+      notifications.show({
+        message: `${email} aggiunto al gruppo`,
+        color: "green",
+      });
       setEmail("");
     } catch (err: any) {
       notifications.show({ message: err.message, color: "red" });
@@ -26,9 +29,12 @@ export default function InviteMemberForm({ groupId }: { groupId: string }) {
 
   return (
     <div>
-      <Text size="sm" fw={500} mb="xs">Aggiungi membro</Text>
+      <Text size="sm" fw={500} mb="xs">
+        Aggiungi membro
+      </Text>
       <Text size="xs" c="dimmed" mb="sm">
-        L&apos;utente deve avere già effettuato l&apos;accesso all&apos;app almeno una volta.
+        L&apos;utente deve avere già effettuato l&apos;accesso all&apos;app
+        almeno una volta.
       </Text>
       <Group gap="xs">
         <TextInput
@@ -44,7 +50,13 @@ export default function InviteMemberForm({ groupId }: { groupId: string }) {
           color="dark"
           onClick={handleInvite}
           disabled={loading || !email.trim()}
-          leftSection={loading ? <Loader size={12} color="white" /> : <IconUserPlus size={14} />}
+          leftSection={
+            loading ? (
+              <Loader size={12} color="white" />
+            ) : (
+              <IconUserPlus size={14} />
+            )
+          }
         >
           Invita
         </Button>
