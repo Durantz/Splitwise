@@ -15,24 +15,20 @@ export async function getDashboardData(
 
   const gId = new mongoose.Types.ObjectId(groupId);
   const { start, end, label } = currentMonthRange();
+  const myId = session.user.id;
 
-  // ── Spese del mese per i KPI in cima ──────────────────────────────────
-  const monthlyExpenses = await Expense.find({
-    groupId: gId,
-    date: { $gte: start, $lte: end },
-  }).lean();
-
-  const monthlyCount = monthlyExpenses.length;
-  const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-  // ── Tutte le spese per calcolare i bilanci ────────────────────────────
+  // Tutte le spese con split popolati (servono per entrambi i calcoli)
   const allExpenses = await Expense.find({ groupId: gId })
     .populate("paidBy", "name email image")
     .populate("splits.userId", "name email image")
     .lean();
 
-  // Per ogni altra persona: quanto mi deve (positivo) o gli devo (negativo)
   const balanceMap = new Map<string, { user: UserDTO; amount: number }>();
+
+  let monthlyCount = 0;
+  let monthlyTotal = 0;
+  let monthlyOwedToMe = 0;
+  let monthlyIOwe = 0;
 
   function addToBalance(user: UserDTO, delta: number) {
     const prev = balanceMap.get(user.id)?.amount ?? 0;
@@ -41,24 +37,32 @@ export async function getDashboardData(
 
   for (const expense of allExpenses) {
     const payer = expense.paidBy as any;
-    const iAmPayer = payer._id.toString() === session.user.id;
+    const iAmPayer = payer._id.toString() === myId;
+    const isThisMonth = expense.date >= start && expense.date <= end;
+
+    // KPI mensili
+    if (isThisMonth) {
+      monthlyCount++;
+      monthlyTotal += expense.amount;
+    }
 
     for (const split of expense.splits) {
       if (split.settled) continue;
       const member = split.userId as any;
-      const isMySplit = member._id.toString() === session.user.id;
+      const isMySplit = member._id.toString() === myId;
 
       if (iAmPayer && !isMySplit) {
-        // Ho pagato io, l'altro mi deve la sua quota
+        // Ho pagato io, l'altro mi deve
         addToBalance(toUserDTO(member), +split.amount);
+        if (isThisMonth) monthlyOwedToMe += split.amount;
       } else if (!iAmPayer && isMySplit) {
-        // Ha pagato un altro, io gli devo la mia quota
+        // Ha pagato un altro, io gli devo
         addToBalance(toUserDTO(payer), -split.amount);
+        if (isThisMonth) monthlyIOwe += split.amount;
       }
     }
   }
 
-  // ── Costruisci il risultato ────────────────────────────────────────────
   const balances = Array.from(balanceMap.values())
     .map((b) => ({ ...b, amount: round2(b.amount) }))
     .filter((b) => Math.abs(b.amount) >= 0.01);
@@ -75,14 +79,14 @@ export async function getDashboardData(
     monthLabel: label,
     monthlyCount,
     monthlyTotal: round2(monthlyTotal),
+    monthlyOwedToMe: round2(monthlyOwedToMe),
+    monthlyIOwe: round2(monthlyIOwe),
     totalOwedToMe: round2(totalOwedToMe),
     totalIOwe: round2(totalIOwe),
     netBalance: round2(totalOwedToMe - totalIOwe),
     balances,
   };
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────
 
 function toUserDTO(u: any): UserDTO {
   return { id: u._id.toString(), name: u.name, email: u.email, image: u.image };

@@ -25,15 +25,17 @@ export const metadata: Metadata = {
   description: "Gestisci le spese condivise con il tuo gruppo.",
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await getServerSession(authOptions);
   return (
     <html lang="it">
-      <head>
-        <ColorSchemeScript />
-      </head>
       <body>
-        <MantineProvider theme={theme}>
+        <ColorSchemeScript />
+        <MantineProvider theme={theme} defaultColorScheme="light">
           <Notifications position="top-right" />
           <SessionProvider session={session}>{children}</SessionProvider>
         </MantineProvider>

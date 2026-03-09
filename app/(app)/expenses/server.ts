@@ -20,7 +20,9 @@ export interface CreateExpenseInput {
 
 export async function getExpenses(groupId: string): Promise<ExpenseDTO[]> {
   await connectDB();
-  const expenses = await Expense.find({ groupId: new mongoose.Types.ObjectId(groupId) })
+  const expenses = await Expense.find({
+    groupId: new mongoose.Types.ObjectId(groupId),
+  })
     .sort({ date: -1, createdAt: -1 })
     .populate("paidBy", "name email image")
     .populate("splits.userId", "name email image")
@@ -52,7 +54,11 @@ export async function createExpense(input: CreateExpenseInput) {
   revalidatePath("/dashboard");
 }
 
-export async function markSplitSettled(expenseId: string, userId: string, groupId: string) {
+export async function markSplitSettled(
+  expenseId: string,
+  userId: string,
+  groupId: string
+) {
   await requireSession();
   await connectDB();
   await Expense.updateOne(
@@ -92,6 +98,8 @@ function toExpenseDTO(e: any): ExpenseDTO {
       percentage: s.percentage,
       amount: s.amount,
       settled: s.settled,
+      settledAt:
+        s.settledAt instanceof Date ? s.settledAt.toISOString() : s.settledAt, // ← aggiungi questa riga
     })),
   };
 }

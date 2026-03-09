@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/session";
 import { getGroupById } from "@/app/(app)/groups/server";
 import { getExpenses } from "@/app/(app)/expenses/server";
 import { getDashboardData } from "@/app/(app)/dashboard/server";
+import { getPairBalances } from "@/app/(app)/settlements/server";
 import GroupDetailView from "@/components/groups/GroupDetailView";
 
 interface Props {
@@ -12,10 +13,12 @@ interface Props {
 export default async function GroupDetailPage({ params }: Props) {
   const session = await requireSession();
   const { groupId } = await params;
-  const [group, expenses, dashData] = await Promise.all([
+
+  const [group, expenses, dashData, pairBalances] = await Promise.all([
     getGroupById(groupId, session.user.id),
     getExpenses(groupId),
     getDashboardData(groupId),
+    getPairBalances(groupId),
   ]);
 
   if (!group) notFound();
@@ -25,6 +28,7 @@ export default async function GroupDetailPage({ params }: Props) {
       group={group}
       expenses={expenses}
       dashData={dashData}
+      pairBalances={pairBalances}
       currentUserId={session.user.id}
     />
   );

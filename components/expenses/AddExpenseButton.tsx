@@ -1,14 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Modal, TextInput, NumberInput, Select, Textarea, Group, Stack, SegmentedControl, Text, SimpleGrid, UnstyledButton, Box } from "@mantine/core";
+import { useState, useMemo } from "react";
+import {
+  Button,
+  Modal,
+  TextInput,
+  NumberInput,
+  Select,
+  Textarea,
+  Group,
+  Stack,
+  Text,
+  SimpleGrid,
+  UnstyledButton,
+  Box,
+  Checkbox,
+  SegmentedControl,
+  Avatar,
+  Divider,
+  Alert,
+} from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconInfoCircle } from "@tabler/icons-react";
 import { createExpense } from "@/app/(app)/expenses/server";
 import { CATEGORY_META, type ExpenseCategory, type GroupDTO } from "@/types";
-import { calcEqualSplits } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import "dayjs/locale/it";
 
 interface Props {
@@ -16,11 +34,29 @@ interface Props {
   currentUserId: string;
 }
 
-const CATEGORIES = Object.entries(CATEGORY_META) as [ExpenseCategory, (typeof CATEGORY_META)[ExpenseCategory]][];
+const CATEGORIES = Object.entries(CATEGORY_META) as [
+  ExpenseCategory,
+  (typeof CATEGORY_META)[ExpenseCategory]
+][];
+
+type SplitMode = "equal" | "custom";
 
 export default function AddExpenseButton({ group, currentUserId }: Props) {
   const [opened, setOpened] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Chi partecipa alla spesa (default: tutti)
+  const [participants, setParticipants] = useState<string[]>(
+    group.members.map((m) => m.id)
+  );
+
+  // Modalità divisione
+  const [splitMode, setSplitMode] = useState<SplitMode>("equal");
+
+  // Percentuali custom: userId -> percentuale
+  const [customPcts, setCustomPcts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(group.members.map((m) => [m.id, 0]))
+  );
 
   const form = useForm({
     initialValues: {
@@ -32,19 +68,125 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
       notes: "",
     },
     validate: {
-      description: (v) => (!v.trim() ? "Campo obbligatorio" : null),
-      amount: (v) => (v <= 0 ? "Importo non valido" : null),
+      description: (v: string) => (!v.trim() ? "Campo obbligatorio" : null),
+      amount: (v: number) => (v <= 0 ? "Importo non valido" : null),
     },
   });
 
+  // Ricalcola percentuali equali quando cambiano i partecipanti
+  function resetEqualSplit(newParticipants: string[]) {
+    const n = newParticipants.length;
+    if (n === 0) return;
+    const eachPct = parseFloat((100 / n).toFixed(4));
+    const updated: Record<string, number> = {};
+    newParticipants.forEach((id, i) => {
+      updated[id] =
+        i === n - 1
+          ? parseFloat((100 - eachPct * (n - 1)).toFixed(2))
+          : parseFloat(eachPct.toFixed(2));
+    });
+    setCustomPcts((prev) => ({ ...prev, ...updated }));
+  }
+
+  function toggleParticipant(id: string) {
+    const next = participants.includes(id)
+      ? participants.filter((p) => p !== id)
+      : [...participants, id];
+
+    if (next.length === 0) return; // almeno uno
+    setParticipants(next);
+
+    // resetta a equale quando cambiano i partecipanti
+    if (splitMode === "equal") {
+      resetEqualSplit(next);
+    } else {
+      // in custom, azzera chi non partecipa
+      setCustomPcts((prev) => {
+        const updated = { ...prev };
+        group.members.forEach((m) => {
+          if (!next.includes(m.id)) updated[m.id] = 0;
+        });
+        return updated;
+      });
+    }
+  }
+
+  function handleSplitModeChange(mode: SplitMode) {
+    setSplitMode(mode);
+    if (mode === "equal") {
+      resetEqualSplit(participants);
+    }
+  }
+
+  function handleCustomPctChange(userId: string, value: number) {
+    setCustomPcts((prev) => ({ ...prev, [userId]: value }));
+  }
+
+  // Somma delle percentuali custom dei partecipanti
+  const customTotal = useMemo(
+    () => participants.reduce((sum, id) => sum + (customPcts[id] ?? 0), 0),
+    [participants, customPcts]
+  );
+
+  const customTotalOk = Math.abs(customTotal - 100) < 0.01;
+
+  function buildSplits(amount: number) {
+    if (splitMode === "equal") {
+      const n = participants.length;
+      const eachAmt = parseFloat((amount / n).toFixed(2));
+      const eachPct = parseFloat((100 / n).toFixed(4));
+      return participants.map((userId, i) => ({
+        userId,
+        percentage:
+          i === n - 1
+            ? parseFloat((100 - eachPct * (n - 1)).toFixed(2))
+            : parseFloat(eachPct.toFixed(2)),
+        amount:
+          i === n - 1
+            ? parseFloat((amount - eachAmt * (n - 1)).toFixed(2))
+            : eachAmt,
+      }));
+    } else {
+      return participants.map((userId) => {
+        const pct = customPcts[userId] ?? 0;
+        return {
+          userId,
+          percentage: pct,
+          amount: parseFloat(((amount * pct) / 100).toFixed(2)),
+        };
+      });
+    }
+  }
+
+  function handleClose() {
+    form.reset();
+    setParticipants(group.members.map((m) => m.id));
+    setSplitMode("equal");
+    setCustomPcts(Object.fromEntries(group.members.map((m) => [m.id, 0])));
+    setOpened(false);
+  }
+
   async function handleSubmit(values: typeof form.values) {
+    if (participants.length === 0) {
+      notifications.show({
+        message: "Seleziona almeno un partecipante",
+        color: "orange",
+      });
+      return;
+    }
+    if (splitMode === "custom" && !customTotalOk) {
+      notifications.show({
+        message: `La somma delle percentuali deve essere 100% (attuale: ${customTotal.toFixed(
+          1
+        )}%)`,
+        color: "orange",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const splits = calcEqualSplits(
-        values.amount,
-        group.members.map((m) => m.id)
-      );
-
+      const splits = buildSplits(values.amount);
       await createExpense({
         groupId: group.id,
         description: values.description,
@@ -57,14 +199,18 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
       });
 
       notifications.show({ message: "Spesa aggiunta!", color: "teal" });
-      form.reset();
-      setOpened(false);
+      handleClose();
     } catch {
-      notifications.show({ message: "Errore durante il salvataggio", color: "red" });
+      notifications.show({
+        message: "Errore durante il salvataggio",
+        color: "red",
+      });
     } finally {
       setLoading(false);
     }
   }
+
+  const amount = form.values.amount || 0;
 
   return (
     <>
@@ -78,95 +224,232 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
 
       <Modal
         opened={opened}
-        onClose={() => setOpened(false)}
+        onClose={handleClose}
         title="Nuova spesa"
         size="md"
         centered
       >
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack gap="md">
+            {/* Descrizione */}
             <TextInput
               label="Descrizione"
               placeholder="es. Cena al ristorante"
               {...form.getInputProps("description")}
             />
 
+            {/* Importo + Categoria */}
             <Group grow>
               <NumberInput
-                label="Importo (€)"
+                label="Importo"
                 placeholder="0,00"
                 min={0}
                 decimalScale={2}
+                fixedDecimalScale
+                prefix={group.currency === "EUR" ? "€" : group.currency + " "}
                 {...form.getInputProps("amount")}
               />
+              <Select
+                label="Categoria"
+                data={CATEGORIES.map(([value, meta]) => ({
+                  value,
+                  label: `${meta.icon} ${meta.label}`,
+                }))}
+                {...form.getInputProps("category")}
+              />
+            </Group>
+
+            {/* Data + Chi ha pagato */}
+            <Group grow>
               <DateInput
                 label="Data"
                 locale="it"
                 valueFormat="DD/MM/YYYY"
                 {...form.getInputProps("date")}
               />
+              <Select
+                label="Pagato da"
+                data={group.members.map((m) => ({
+                  value: m.id,
+                  label: m.id === currentUserId ? `Tu (${m.name})` : m.name,
+                }))}
+                {...form.getInputProps("paidBy")}
+              />
             </Group>
 
-            {/* Categoria */}
-            <Stack gap={6}>
-              <Text size="sm" fw={500}>Categoria</Text>
-              <SimpleGrid cols={4} spacing="xs">
-                {CATEGORIES.map(([key, meta]) => {
-                  const active = form.values.category === key;
+            <Divider />
+
+            {/* Partecipanti */}
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Chi partecipa?
+              </Text>
+              <SimpleGrid cols={2} spacing="xs">
+                {group.members.map((m) => {
+                  const checked = participants.includes(m.id);
                   return (
                     <UnstyledButton
-                      key={key}
-                      onClick={() => form.setFieldValue("category", key)}
-                      style={{
-                        borderRadius: "var(--mantine-radius-md)",
-                        border: `1px solid ${active ? "var(--mantine-color-dark-6)" : "var(--mantine-color-gray-3)"}`,
-                        background: active ? "var(--mantine-color-dark-7)" : "transparent",
-                        padding: "8px 4px",
-                        textAlign: "center",
-                        transition: "all 0.1s",
-                      }}
+                      key={m.id}
+                      onClick={() => toggleParticipant(m.id)}
                     >
-                      <Text size="lg" lh={1}>{meta.icon}</Text>
-                      <Text size="10px" mt={4} c={active ? "white" : "dimmed"} fw={500}>
-                        {meta.label.split(" ")[0]}
-                      </Text>
+                      <Box
+                        p="xs"
+                        style={(theme) => ({
+                          borderRadius: theme.radius.sm,
+                          border: `1px solid ${
+                            checked
+                              ? theme.colors.blue[5]
+                              : theme.colors.gray[3]
+                          }`,
+                          backgroundColor: checked
+                            ? theme.colors.blue[0]
+                            : "transparent",
+                        })}
+                      >
+                        <Group gap="xs" wrap="nowrap">
+                          <Checkbox checked={checked} readOnly size="xs" />
+                          <Avatar
+                            src={m.image}
+                            size={20}
+                            radius="xl"
+                            name={m.name}
+                          />
+                          <Text size="xs" fw={checked ? 600 : 400} truncate>
+                            {m.id === currentUserId ? "Tu" : m.name}
+                          </Text>
+                        </Group>
+                      </Box>
                     </UnstyledButton>
                   );
                 })}
               </SimpleGrid>
             </Stack>
 
-            {/* Chi ha pagato */}
-            <Stack gap={6}>
-              <Text size="sm" fw={500}>Chi ha pagato</Text>
-              <SegmentedControl
-                value={form.values.paidBy}
-                onChange={(v) => form.setFieldValue("paidBy", v)}
-                data={group.members.map((m) => ({
-                  value: m.id,
-                  label: m.id === currentUserId ? "Tu" : m.name.split(" ")[0],
-                }))}
-                fullWidth
-              />
-            </Stack>
+            {/* Modalità di divisione */}
+            {participants.length > 1 && (
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Come dividerla?
+                </Text>
+                <SegmentedControl
+                  size="xs"
+                  value={splitMode}
+                  onChange={(v) => handleSplitModeChange(v as SplitMode)}
+                  data={[
+                    { label: "Equa", value: "equal" },
+                    { label: "Personalizzata", value: "custom" },
+                  ]}
+                />
 
+                {/* Anteprima divisione */}
+                <Stack gap={6} mt={4}>
+                  {participants.map((userId) => {
+                    const member = group.members.find((m) => m.id === userId)!;
+                    const pct =
+                      splitMode === "equal"
+                        ? parseFloat((100 / participants.length).toFixed(1))
+                        : customPcts[userId] ?? 0;
+                    const memberAmount =
+                      amount > 0
+                        ? parseFloat(((amount * pct) / 100).toFixed(2))
+                        : null;
+
+                    return (
+                      <Group key={userId} justify="space-between" wrap="nowrap">
+                        <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
+                          <Avatar
+                            src={member.image}
+                            size={22}
+                            radius="xl"
+                            name={member.name}
+                          />
+                          <Text size="xs" truncate style={{ minWidth: 60 }}>
+                            {userId === currentUserId ? "Tu" : member.name}
+                          </Text>
+                        </Group>
+
+                        {splitMode === "custom" ? (
+                          <Group gap="xs" wrap="nowrap">
+                            <NumberInput
+                              size="xs"
+                              min={0}
+                              max={100}
+                              decimalScale={1}
+                              suffix="%"
+                              value={customPcts[userId] ?? 0}
+                              onChange={(v) =>
+                                handleCustomPctChange(userId, Number(v) || 0)
+                              }
+                              w={90}
+                              styles={{ input: { textAlign: "right" } }}
+                            />
+                            {memberAmount !== null && (
+                              <Text
+                                size="xs"
+                                c="dimmed"
+                                ff="monospace"
+                                w={70}
+                                ta="right"
+                              >
+                                {formatCurrency(memberAmount, group.currency)}
+                              </Text>
+                            )}
+                          </Group>
+                        ) : (
+                          <Group gap="xs">
+                            <Text size="xs" c="dimmed">
+                              {(100 / participants.length).toFixed(1)}%
+                            </Text>
+                            {memberAmount !== null && (
+                              <Text
+                                size="xs"
+                                fw={500}
+                                ff="monospace"
+                                w={70}
+                                ta="right"
+                              >
+                                {formatCurrency(memberAmount, group.currency)}
+                              </Text>
+                            )}
+                          </Group>
+                        )}
+                      </Group>
+                    );
+                  })}
+
+                  {/* Totale custom con feedback errore */}
+                  {splitMode === "custom" && (
+                    <Group justify="flex-end" gap="xs" mt={2}>
+                      <Text
+                        size="xs"
+                        fw={600}
+                        c={customTotalOk ? "teal" : "red"}
+                      >
+                        Totale: {customTotal.toFixed(1)}%{" "}
+                        {customTotalOk
+                          ? "✓"
+                          : `(mancano ${(100 - customTotal).toFixed(1)}%)`}
+                      </Text>
+                    </Group>
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Note */}
             <Textarea
-              label="Note (opzionale)"
-              placeholder="Aggiungi una nota..."
+              label="Note"
+              placeholder="Facoltativo"
               rows={2}
               {...form.getInputProps("notes")}
             />
 
-            <Text size="xs" c="dimmed">
-              La spesa verrà divisa equamente tra {group.members.length} persone.
-            </Text>
-
-            <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={() => setOpened(false)}>
+            <Group justify="flex-end">
+              <Button variant="subtle" onClick={handleClose}>
                 Annulla
               </Button>
               <Button type="submit" loading={loading}>
-                Aggiungi spesa
+                Salva
               </Button>
             </Group>
           </Stack>

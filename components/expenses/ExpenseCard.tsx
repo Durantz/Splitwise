@@ -1,15 +1,22 @@
 "use client";
 
 import {
-  Card, Group, Stack, Text, Avatar, Badge, ActionIcon,
-  Tooltip, Divider, Progress,
+  Card,
+  Group,
+  Stack,
+  Text,
+  Avatar,
+  ActionIcon,
+  Tooltip,
+  Divider,
+  Badge,
 } from "@mantine/core";
-import { IconCheck, IconTrash } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import type { ExpenseDTO } from "@/types";
 import { CATEGORY_META } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { markSplitSettled, deleteExpense } from "@/app/(app)/expenses/server";
+import { deleteExpense } from "@/app/(app)/expenses/server";
 
 interface Props {
   expense: ExpenseDTO;
@@ -18,24 +25,31 @@ interface Props {
   currency: string;
 }
 
-export default function ExpenseCard({ expense, currentUserId, groupId, currency }: Props) {
+export default function ExpenseCard({
+  expense,
+  currentUserId,
+  groupId,
+  currency,
+}: Props) {
   const iAmPayer = expense.paidBy.id === currentUserId;
-  const mySplit = expense.splits.find((s) => s.userId === currentUserId);
   const meta = CATEGORY_META[expense.category];
 
-  // Quanto anticipo per gli altri (se ho pagato io)
-  const myAdvanceForOthers = iAmPayer
-    ? expense.splits
-        .filter((s) => s.userId !== currentUserId && !s.settled)
-        .reduce((sum, s) => sum + s.amount, 0)
-    : 0;
+  // Considera solo gli split di chi non ha pagato (il pagante non deve nulla a se stesso)
+  const relevantSplits = expense.splits.filter(
+    (s) => s.userId !== expense.paidBy.id
+  );
+  const allSettled =
+    relevantSplits.length > 0 && relevantSplits.every((s) => s.settled);
+  const someSettled = !allSettled && relevantSplits.some((s) => s.settled);
 
-  const myDebt = !iAmPayer && mySplit && !mySplit.settled ? mySplit.amount : 0;
-
-  async function handleSettle() {
-    await markSplitSettled(expense.id, currentUserId, groupId);
-    notifications.show({ message: "Quota segnata come saldata", color: "teal" });
-  }
+  // Data di saldo: la più recente tra gli split saldati
+  const settledAt = allSettled
+    ? relevantSplits
+        .map((s) => s.settledAt)
+        .filter(Boolean)
+        .sort()
+        .at(-1)
+    : null;
 
   async function handleDelete() {
     await deleteExpense(expense.id, groupId);
@@ -48,29 +62,33 @@ export default function ExpenseCard({ expense, currentUserId, groupId, currency 
         {/* Header */}
         <Group justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
-            <Text size="xl" style={{ lineHeight: 1 }}>{meta.icon}</Text>
+            <Text size="xl" style={{ lineHeight: 1 }}>
+              {meta.icon}
+            </Text>
             <Stack gap={0}>
-              <Text size="sm" fw={600} lineClamp={1}>{expense.description}</Text>
+              <Text size="sm" fw={600} lineClamp={1}>
+                {expense.description}
+              </Text>
               <Text size="xs" c="dimmed">
                 {meta.label} · {formatDate(expense.date)}
               </Text>
             </Stack>
           </Group>
-          <Stack gap={0} align="flex-end">
+          <Group gap="xs" wrap="nowrap">
+            {allSettled && (
+              <Badge size="xs" color="teal" variant="light">
+                Saldato
+              </Badge>
+            )}
+            {someSettled && (
+              <Badge size="xs" color="yellow" variant="light">
+                Parz. saldato
+              </Badge>
+            )}
             <Text size="sm" fw={700} ff="monospace">
               {formatCurrency(expense.amount, currency)}
             </Text>
-            {iAmPayer && myAdvanceForOthers > 0 && (
-              <Text size="xs" c="teal" fw={500}>
-                +{formatCurrency(myAdvanceForOthers, currency)} da ricevere
-              </Text>
-            )}
-            {!iAmPayer && myDebt > 0 && (
-              <Text size="xs" c="red" fw={500}>
-                -{formatCurrency(myDebt, currency)} da dare
-              </Text>
-            )}
-          </Stack>
+          </Group>
         </Group>
 
         <Divider />
@@ -79,14 +97,27 @@ export default function ExpenseCard({ expense, currentUserId, groupId, currency 
         <Stack gap={6}>
           {expense.splits.map((split) => {
             const isMe = split.userId === currentUserId;
+            const isPayer = split.userId === expense.paidBy.id;
             return (
               <Group key={split.userId} justify="space-between">
                 <Group gap="xs">
-                  <Avatar src={split.userImage} size={22} radius="xl" name={split.userName} />
-                  <Text size="xs" fw={isMe ? 600 : 400}>
+                  <Avatar
+                    src={split.userImage}
+                    size={22}
+                    radius="xl"
+                    name={split.userName}
+                  />
+                  <Text
+                    size="xs"
+                    fw={isMe ? 600 : 400}
+                    td={split.settled ? "line-through" : undefined}
+                    c={split.settled ? "dimmed" : undefined}
+                  >
                     {isMe ? "Tu" : split.userName}
                   </Text>
-                  <Text size="xs" c="dimmed">{split.percentage.toFixed(0)}%</Text>
+                  <Text size="xs" c="dimmed">
+                    {split.percentage.toFixed(0)}%
+                  </Text>
                 </Group>
                 <Group gap="xs">
                   <Text
@@ -98,35 +129,33 @@ export default function ExpenseCard({ expense, currentUserId, groupId, currency 
                   >
                     {formatCurrency(split.amount, currency)}
                   </Text>
-                  <Badge
-                    size="xs"
-                    color={split.settled ? "teal" : "orange"}
-                    variant="light"
-                  >
-                    {split.settled ? "Saldato" : "Aperto"}
-                  </Badge>
+                  {/* Data saldo dello split, solo se non è il pagante */}
+                  {!isPayer && split.settled && split.settledAt && (
+                    <Text size="xs" c="teal">
+                      {formatDate(split.settledAt)}
+                    </Text>
+                  )}
                 </Group>
               </Group>
             );
           })}
         </Stack>
 
-        {/* Actions */}
-        <Group justify="flex-end" gap="xs">
-          {/* Segna la MIA quota come saldata */}
-          {!iAmPayer && mySplit && !mySplit.settled && (
-            <Tooltip label="Segna come saldato">
-              <ActionIcon
-                size="sm"
-                variant="light"
-                color="teal"
-                onClick={handleSettle}
-              >
-                <IconCheck size={14} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          {/* Elimina — solo chi ha pagato */}
+        {/* Footer: note + azioni */}
+        <Group justify="space-between" align="center" mt={-4}>
+          <Stack gap={2}>
+            {expense.notes && (
+              <Text size="xs" c="dimmed" fs="italic">
+                {expense.notes}
+              </Text>
+            )}
+            {allSettled && settledAt && (
+              <Text size="xs" c="teal">
+                Saldato completamente il {formatDate(settledAt)}
+              </Text>
+            )}
+          </Stack>
+
           {iAmPayer && (
             <Tooltip label="Elimina spesa">
               <ActionIcon
@@ -140,12 +169,6 @@ export default function ExpenseCard({ expense, currentUserId, groupId, currency 
             </Tooltip>
           )}
         </Group>
-
-        {expense.notes && (
-          <Text size="xs" c="dimmed" fs="italic" mt={-4}>
-            {expense.notes}
-          </Text>
-        )}
       </Stack>
     </Card>
   );

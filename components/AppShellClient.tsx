@@ -58,11 +58,7 @@ export default function AppShellClient({ user, children }: Props) {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar
-        p="md"
-        zIndex={100}
-        // style={opened ? { top: 0, left: 0, transform: "none" } : undefined}
-      >
+      <AppShell.Navbar p="md" zIndex={100}>
         <AppNav user={user} />
       </AppShell.Navbar>
 
