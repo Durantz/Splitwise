@@ -21,13 +21,15 @@ import {
   Alert,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { DateInput } from "@mantine/dates";
+import { useMediaQuery } from "@mantine/hooks";
+import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconInfoCircle } from "@tabler/icons-react";
 import { createExpense } from "@/app/(app)/expenses/server";
 import { CATEGORY_META, type ExpenseCategory, type GroupDTO } from "@/types";
 import { formatCurrency } from "@/lib/format";
 import "dayjs/locale/it";
+import { Chip } from "@mantine/core";
 
 interface Props {
   group: GroupDTO;
@@ -41,9 +43,18 @@ const CATEGORIES = Object.entries(CATEGORY_META) as [
 
 type SplitMode = "equal" | "custom";
 
+// Converte Date → "YYYY-MM-DD" richiesto da input[type=date]
+function toDateInputValue(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export default function AddExpenseButton({ group, currentUserId }: Props) {
   const [opened, setOpened] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isMobile = useMediaQuery("(max-width: 600px)");
 
   // Chi partecipa alla spesa (default: tutti)
   const [participants, setParticipants] = useState<string[]>(
@@ -259,12 +270,15 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
               />
             </Group>
 
-            {/* Data + Chi ha pagato */}
-            <Group grow>
-              <DateInput
+            {/* Data + Chi ha pagato — UNICA modifica rispetto all'originale:
+                su mobile usa input[type=date] nativo per evitare il popover
+                che esce dallo schermo e lo zoom automatico di Safari */}
+            <Group grow align="flex-start">
+              <DatePickerInput
                 label="Data"
                 locale="it"
                 valueFormat="DD/MM/YYYY"
+                dropdownType={isMobile ? "modal" : "popover"}
                 {...form.getInputProps("date")}
               />
               <Select
@@ -284,45 +298,29 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
               <Text size="sm" fw={500}>
                 Chi partecipa?
               </Text>
-              <SimpleGrid cols={2} spacing="xs">
-                {group.members.map((m) => {
-                  const checked = participants.includes(m.id);
-                  return (
-                    <UnstyledButton
-                      key={m.id}
-                      onClick={() => toggleParticipant(m.id)}
-                    >
-                      <Box
-                        p="xs"
-                        style={(theme) => ({
-                          borderRadius: theme.radius.sm,
-                          border: `1px solid ${
-                            checked
-                              ? theme.colors.blue[5]
-                              : theme.colors.gray[3]
-                          }`,
-                          backgroundColor: checked
-                            ? theme.colors.blue[0]
-                            : "transparent",
-                        })}
-                      >
-                        <Group gap="xs" wrap="nowrap">
-                          <Checkbox checked={checked} readOnly size="xs" />
-                          <Avatar
-                            src={m.image}
-                            size={20}
-                            radius="xl"
-                            name={m.name}
-                          />
-                          <Text size="xs" fw={checked ? 600 : 400} truncate>
-                            {m.id === currentUserId ? "Tu" : m.name}
-                          </Text>
-                        </Group>
-                      </Box>
-                    </UnstyledButton>
-                  );
-                })}
-              </SimpleGrid>
+              <Chip.Group
+                multiple
+                value={participants}
+                onChange={setParticipants}
+              >
+                <SimpleGrid cols={2} spacing="xs">
+                  {group.members.map((m) => (
+                    <Chip key={m.id} value={m.id} w="100%">
+                      <Group gap="xs">
+                        <Avatar
+                          src={m.image}
+                          size={20}
+                          radius="xl"
+                          name={m.name}
+                        />
+                        <Text size="xs">
+                          {m.id === currentUserId ? "Tu" : m.name}
+                        </Text>
+                      </Group>
+                    </Chip>
+                  ))}
+                </SimpleGrid>
+              </Chip.Group>
             </Stack>
 
             {/* Modalità di divisione */}

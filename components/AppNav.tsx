@@ -7,7 +7,6 @@ import {
   Text,
   Group,
   Divider,
-  UnstyledButton,
   Box,
 } from "@mantine/core";
 import {
@@ -15,6 +14,7 @@ import {
   IconReceipt,
   IconUsers,
   IconLogout,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -37,12 +37,13 @@ const links = [
 
 export default function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
+  const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
   return (
     <Stack justify="space-between" style={{ minHeight: "100%" }}>
       {/* Brand */}
       <Stack gap={0}>
-        <Group gap="xs" mb="lg" px="xs">
+        {/* <Group gap="xs" mb="lg" px="xs">
           <Box
             w={28}
             h={28}
@@ -60,7 +61,7 @@ export default function AppNav({ user }: AppNavProps) {
           <Text fw={700} size="sm">
             Split
           </Text>
-        </Group>
+        </Group> */}
 
         <Stack gap={2}>
           {links.map(({ href, label, icon: Icon }) => (
@@ -74,6 +75,17 @@ export default function AppNav({ user }: AppNavProps) {
               styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
             />
           ))}
+
+          {isAdmin && (
+            <NavLink
+              component={Link}
+              href="/admin/users"
+              label="Utenti"
+              leftSection={<IconShieldCheck size={16} stroke={1.5} />}
+              active={pathname.startsWith("/admin")}
+              styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
+            />
+          )}
         </Stack>
       </Stack>
 

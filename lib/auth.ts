@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { connectDB } from "@/lib/db/mongoose";
 import { User } from "@/lib/models/User";
+import { AllowedEmail } from "@/lib/models/Allowedemail";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,9 +15,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       await connectDB();
+      const allowed = await AllowedEmail.findOne({
+        email: user.email?.toLowerCase(),
+      });
+      if (!allowed) return "/login?error=not_allowed";
+
       const exists = await User.findOne({ email: user.email });
       if (!exists) {
-        await User.create({ name: user.name, email: user.email, image: user.image });
+        await User.create({
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        });
       }
       return true;
     },

@@ -3,26 +3,29 @@ import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 import "./globals.css";
 
-import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
+import {
+  ColorSchemeScript,
+  MantineProvider,
+  mantineHtmlProps,
+} from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import SessionProvider from "@/components/SessionProvider";
-import type { Metadata } from "next";
-
-const theme = createTheme({
-  primaryColor: "dark",
-  defaultRadius: "md",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  components: {
-    Card: { defaultProps: { withBorder: true, shadow: "xs", radius: "md" } },
-    Paper: { defaultProps: { withBorder: true, shadow: "xs", radius: "md" } },
-  },
-});
+import { theme } from "@/lib/theme";
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "Split — Spese condivise",
   description: "Gestisci le spese condivise con il tuo gruppo.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({
@@ -32,10 +35,10 @@ export default async function RootLayout({
 }) {
   const session = await getServerSession(authOptions);
   return (
-    <html lang="it">
+    <html lang="it" {...mantineHtmlProps}>
       <body>
-        <ColorSchemeScript />
-        <MantineProvider theme={theme} defaultColorScheme="light">
+        <ColorSchemeScript defaultColorScheme="auto" />
+        <MantineProvider theme={theme} defaultColorScheme="auto">
           <Notifications position="top-right" />
           <SessionProvider session={session}>{children}</SessionProvider>
         </MantineProvider>
