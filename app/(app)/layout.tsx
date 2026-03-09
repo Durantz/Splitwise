@@ -1,6 +1,5 @@
 import { requireSession } from "@/lib/session";
-import AppNav from "@/components/AppNav";
-import AppShellLayout from "@/components/AppShellLayout";
+import AppShellClient from "@/components/AppShellClient";
 
 export default async function AppLayout({
   children,
@@ -9,9 +8,5 @@ export default async function AppLayout({
 }) {
   const session = await requireSession();
 
-  return (
-    <AppShellLayout navbar={<AppNav user={session.user} />}>
-      {children}
-    </AppShellLayout>
-  );
+  return <AppShellClient user={session.user}>{children}</AppShellClient>;
 }

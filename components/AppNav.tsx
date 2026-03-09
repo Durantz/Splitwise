@@ -1,36 +1,65 @@
 "use client";
 
-import { Stack, NavLink, Avatar, Text, Group, Divider, UnstyledButton, Box } from "@mantine/core";
-import { IconLayoutDashboard, IconReceipt, IconUsers, IconLogout } from "@tabler/icons-react";
+import {
+  Stack,
+  NavLink,
+  Avatar,
+  Text,
+  Group,
+  Divider,
+  UnstyledButton,
+  Box,
+} from "@mantine/core";
+import {
+  IconLayoutDashboard,
+  IconReceipt,
+  IconUsers,
+  IconLogout,
+} from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 
 interface AppNavProps {
-  user: { id: string; name?: string | null; email?: string | null; image?: string | null };
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
 }
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
-  { href: "/expenses", label: "Spese",     icon: IconReceipt },
-  { href: "/groups",   label: "Gruppi",    icon: IconUsers },
+  { href: "/expenses", label: "Spese", icon: IconReceipt },
+  { href: "/groups", label: "Gruppi", icon: IconUsers },
 ];
 
 export default function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
 
   return (
-    <Stack h="100%" justify="space-between">
+    <Stack justify="space-between" style={{ minHeight: "100%" }}>
       {/* Brand */}
       <Stack gap={0}>
         <Group gap="xs" mb="lg" px="xs">
           <Box
-            w={28} h={28}
-            style={{ borderRadius: 8, background: "var(--mantine-color-dark-6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}
+            w={28}
+            h={28}
+            style={{
+              borderRadius: 8,
+              background: "var(--mantine-color-dark-6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+            }}
           >
             💸
           </Box>
-          <Text fw={700} size="sm">Split</Text>
+          <Text fw={700} size="sm">
+            Split
+          </Text>
         </Group>
 
         <Stack gap={2}>
@@ -52,10 +81,19 @@ export default function AppNav({ user }: AppNavProps) {
       <Stack gap="xs">
         <Divider />
         <Group gap="xs" px="xs">
-          <Avatar src={user.image} size={28} radius="xl" name={user.name ?? undefined} />
+          <Avatar
+            src={user.image}
+            size={28}
+            radius="xl"
+            name={user.name ?? undefined}
+          />
           <Box style={{ flex: 1, minWidth: 0 }}>
-            <Text size="xs" fw={500} truncate>{user.name}</Text>
-            <Text size="xs" c="dimmed" truncate>{user.email}</Text>
+            <Text size="xs" fw={500} truncate>
+              {user.name}
+            </Text>
+            <Text size="xs" c="dimmed" truncate>
+              {user.email}
+            </Text>
           </Box>
         </Group>
         <NavLink
