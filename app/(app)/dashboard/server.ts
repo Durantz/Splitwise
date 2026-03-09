@@ -2,90 +2,92 @@
 
 import { connectDB } from "@/lib/db/mongoose";
 import { Expense } from "@/lib/models/Expense";
-import { Settlement } from "@/lib/models/Settlement";
-import { User } from "@/lib/models/User";
-import type { DashboardData, UserDTO, BalanceEntry } from "@/types";
+import { requireSession } from "@/lib/session";
+import { currentMonthRange } from "@/lib/format";
+import type { DashboardData, UserDTO } from "@/types";
 import mongoose from "mongoose";
-import { format, startOfMonth, endOfMonth } from "date-fns";
-import { it } from "date-fns/locale";
 
 export async function getDashboardData(
-  groupId: string,
-  currentUserId: string
+  groupId: string
 ): Promise<DashboardData> {
+  const session = await requireSession();
   await connectDB();
 
   const gId = new mongoose.Types.ObjectId(groupId);
-  const uId = new mongoose.Types.ObjectId(currentUserId);
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  const { start, end, label } = currentMonthRange();
 
-  const [monthlyExpenses, allExpenses, settlements] = await Promise.all([
-    Expense.find({ groupId: gId, date: { $gte: monthStart, $lte: monthEnd } }).lean(),
-    Expense.find({ groupId: gId }).lean(),
-    Settlement.find({ groupId: gId, $or: [{ from: uId }, { to: uId }] }).lean(),
-  ]);
+  // ── Spese del mese per i KPI in cima ──────────────────────────────────
+  const monthlyExpenses = await Expense.find({
+    groupId: gId,
+    date: { $gte: start, $lte: end },
+  }).lean();
 
   const monthlyCount = monthlyExpenses.length;
-  const monthlyTotal = monthlyExpenses.reduce((s, e) => s + e.amount, 0);
+  const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  // Mappa userId → saldo netto: positivo = mi deve, negativo = gli devo
-  const netMap = new Map<string, number>();
+  // ── Tutte le spese per calcolare i bilanci ────────────────────────────
+  const allExpenses = await Expense.find({ groupId: gId })
+    .populate("paidBy", "name email image")
+    .populate("splits.userId", "name email image")
+    .lean();
+
+  // Per ogni altra persona: quanto mi deve (positivo) o gli devo (negativo)
+  const balanceMap = new Map<string, { user: UserDTO; amount: number }>();
+
+  function addToBalance(user: UserDTO, delta: number) {
+    const prev = balanceMap.get(user.id)?.amount ?? 0;
+    balanceMap.set(user.id, { user, amount: prev + delta });
+  }
 
   for (const expense of allExpenses) {
-    const payerId = expense.paidBy.toString();
-    const iAmPayer = payerId === currentUserId;
+    const payer = expense.paidBy as any;
+    const iAmPayer = payer._id.toString() === session.user.id;
 
     for (const split of expense.splits) {
       if (split.settled) continue;
-      const splitOwner = split.userId.toString();
+      const member = split.userId as any;
+      const isMySplit = member._id.toString() === session.user.id;
 
-      if (iAmPayer && splitOwner !== currentUserId) {
-        netMap.set(splitOwner, (netMap.get(splitOwner) ?? 0) + split.amount);
-      } else if (!iAmPayer && splitOwner === currentUserId) {
-        netMap.set(payerId, (netMap.get(payerId) ?? 0) - split.amount);
+      if (iAmPayer && !isMySplit) {
+        // Ho pagato io, l'altro mi deve la sua quota
+        addToBalance(toUserDTO(member), +split.amount);
+      } else if (!iAmPayer && isMySplit) {
+        // Ha pagato un altro, io gli devo la mia quota
+        addToBalance(toUserDTO(payer), -split.amount);
       }
     }
   }
 
-  for (const s of settlements) {
-    const fromId = s.from.toString();
-    const toId = s.to.toString();
-    if (fromId === currentUserId) {
-      netMap.set(toId, (netMap.get(toId) ?? 0) + s.amount);
-    } else {
-      netMap.set(fromId, (netMap.get(fromId) ?? 0) - s.amount);
-    }
-  }
+  // ── Costruisci il risultato ────────────────────────────────────────────
+  const balances = Array.from(balanceMap.values())
+    .map((b) => ({ ...b, amount: round2(b.amount) }))
+    .filter((b) => Math.abs(b.amount) >= 0.01);
 
-  const otherIds = [...netMap.keys()].filter((id) => id !== currentUserId);
-  const users = await User.find({
-    _id: { $in: otherIds.map((id) => new mongoose.Types.ObjectId(id)) },
-  }).select("name email image").lean();
+  const totalOwedToMe = balances
+    .filter((b) => b.amount > 0)
+    .reduce((sum, b) => sum + b.amount, 0);
 
-  const userMap = new Map(users.map((u) => [(u._id as any).toString(), u]));
-
-  const balances: BalanceEntry[] = [];
-  let totalOwedToMe = 0;
-  let totalIOwe = 0;
-
-  for (const [uid, amount] of netMap.entries()) {
-    const u = userMap.get(uid);
-    if (!u || Math.abs(amount) < 0.01) continue;
-    const user: UserDTO = { id: uid, name: u.name, email: u.email, image: u.image };
-    balances.push({ user, amount: Math.round(amount * 100) / 100 });
-    if (amount > 0) totalOwedToMe += amount;
-    else totalIOwe += -amount;
-  }
+  const totalIOwe = balances
+    .filter((b) => b.amount < 0)
+    .reduce((sum, b) => sum - b.amount, 0);
 
   return {
+    monthLabel: label,
     monthlyCount,
-    monthlyTotal: Math.round(monthlyTotal * 100) / 100,
-    totalOwedToMe: Math.round(totalOwedToMe * 100) / 100,
-    totalIOwe: Math.round(totalIOwe * 100) / 100,
-    netBalance: Math.round((totalOwedToMe - totalIOwe) * 100) / 100,
+    monthlyTotal: round2(monthlyTotal),
+    totalOwedToMe: round2(totalOwedToMe),
+    totalIOwe: round2(totalIOwe),
+    netBalance: round2(totalOwedToMe - totalIOwe),
     balances,
-    monthLabel: format(now, "MMMM yyyy", { locale: it }),
   };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function toUserDTO(u: any): UserDTO {
+  return { id: u._id.toString(), name: u.name, email: u.email, image: u.image };
+}
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
 }

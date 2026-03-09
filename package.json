@@ -1,5 +1,5 @@
 {
-  "name": "splitwise-v2",
+  "name": "split",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.5",
-    "react": "^18",
-    "react-dom": "^18",
+    "next": "latest",
+    "react": "^19",
+    "react-dom": "^19",
     "next-auth": "^4.24.7",
     "mongoose": "^8.5.1",
     "@mantine/core": "^7.11.0",
@@ -19,7 +19,6 @@
     "@mantine/form": "^7.11.0",
     "@mantine/dates": "^7.11.0",
     "@mantine/notifications": "^7.11.0",
-    "@mantine/next": "^6.0.22",
     "dayjs": "^1.11.11",
     "date-fns": "^3.6.0",
     "@tabler/icons-react": "^3.11.0"
@@ -27,12 +26,12 @@
   "devDependencies": {
     "typescript": "^5",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "postcss": "^8",
     "postcss-preset-mantine": "^1.17.0",
     "postcss-simple-vars": "^7.0.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.5"
+    "eslint": "^9",
+    "eslint-config-next": "latest"
   }
 }

@@ -19,7 +19,7 @@ export default function NewGroupPage() {
 
   const form = useForm({
     initialValues: { name: "", emoji: "💸", currency: "EUR" },
-    validate: { name: (v) => (!v.trim() ? "Il nome è obbligatorio" : null) },
+    validate: { name: (v:string) => (!v.trim() ? "Il nome è obbligatorio" : null) },
   });
 
   async function handleSubmit(values: typeof form.values) {

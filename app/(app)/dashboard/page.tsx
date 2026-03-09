@@ -1,10 +1,24 @@
+"use server";
+
 import {
-  Stack, Title, Text, SimpleGrid, Card, Group, Badge,
-  ThemeIcon, Anchor, Alert,
+  Stack,
+  Title,
+  Text,
+  SimpleGrid,
+  Card,
+  Group,
+  Badge,
+  ThemeIcon,
+  Anchor,
+  Alert,
 } from "@mantine/core";
 import {
-  IconReceipt, IconTrendingUp, IconTrendingDown, IconScale,
-  IconArrowRight, IconAlertCircle,
+  IconReceipt,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconScale,
+  IconArrowRight,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import { requireSession } from "@/lib/session";
 import { getUserGroups } from "@/app/(app)/groups/server";
@@ -15,29 +29,38 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 
 interface Props {
-  searchParams: { groupId?: string };
+  searchParams: Promise<{ groupId?: string }>;
 }
 
+const icon = <IconAlertCircle />;
+
 export default async function DashboardPage({ searchParams }: Props) {
-  const session = await requireSession();
+  const [session, { groupId }] = await Promise.all([
+    requireSession(),
+    searchParams,
+  ]);
   const groups = await getUserGroups(session.user.id);
 
   if (groups.length === 0) {
     return (
       <Stack maw={720} mx="auto" p="md" gap="lg">
-        <Title order={2} fw={600}>Dashboard</Title>
-        <Alert icon={<IconAlertCircle />} color="gray" title="Nessun gruppo">
+        <Title order={2} fw={600}>
+          Dashboard
+        </Title>
+        <Alert icon={icon} color="gray" title="Nessun gruppo">
           Crea il tuo primo gruppo per iniziare a tracciare le spese.{" "}
-          <Anchor component={Link} href="/groups/new" fw={600}>Crea gruppo →</Anchor>
+          <Anchor component={Link} href="/groups/new" fw={600}>
+            Crea gruppo →
+          </Anchor>
         </Alert>
       </Stack>
     );
   }
 
   // Usa il groupId dalla URL o il primo gruppo disponibile
-  const activeGroupId = searchParams.groupId ?? groups[0].id;
+  const activeGroupId = groupId ?? groups[0].id;
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? groups[0];
-  const data = await getDashboardData(activeGroup.id, session.user.id);
+  const data = await getDashboardData(activeGroup.id);
 
   const kpis = [
     {
@@ -77,7 +100,13 @@ export default async function DashboardPage({ searchParams }: Props) {
       {/* Header */}
       <Group justify="space-between" align="flex-end">
         <Stack gap={2}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} style={{ letterSpacing: "0.06em" }}>
+          <Text
+            size="xs"
+            c="dimmed"
+            tt="uppercase"
+            fw={600}
+            style={{ letterSpacing: "0.06em" }}
+          >
             {data.monthLabel}
           </Text>
           <Title order={2} fw={600}>
@@ -94,8 +123,12 @@ export default async function DashboardPage({ searchParams }: Props) {
             <ThemeIcon variant="light" color={kpi.color} size="sm" mb="xs">
               <kpi.icon size={14} />
             </ThemeIcon>
-            <Text size="xl" fw={700} lh={1}>{kpi.value}</Text>
-            <Text size="xs" c="dimmed" mt={4}>{kpi.label}</Text>
+            <Text size="xl" fw={700} lh={1}>
+              {kpi.value}
+            </Text>
+            <Text size="xs" c="dimmed" mt={4}>
+              {kpi.label}
+            </Text>
           </Card>
         ))}
       </SimpleGrid>
@@ -149,17 +182,23 @@ export default async function DashboardPage({ searchParams }: Props) {
       {data.balances.length > 0 && (
         <Card p="md">
           <Group justify="space-between" mb="sm">
-            <Text fw={600} size="sm">Dettaglio per persona</Text>
+            <Text fw={600} size="sm">
+              Dettaglio per persona
+            </Text>
             <Anchor
               component={Link}
               href={`/expenses?groupId=${activeGroup.id}`}
               size="xs"
               c="dimmed"
             >
-              Tutte le spese <IconArrowRight size={12} style={{ verticalAlign: "middle" }} />
+              Tutte le spese{" "}
+              <IconArrowRight size={12} style={{ verticalAlign: "middle" }} />
             </Anchor>
           </Group>
-          <BalanceList balances={data.balances} currency={activeGroup.currency} />
+          <BalanceList
+            balances={data.balances}
+            currency={activeGroup.currency}
+          />
         </Card>
       )}
     </Stack>
