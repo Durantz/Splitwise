@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/session";
 import type { ExpenseDTO, ExpenseCategory } from "@/types";
 import mongoose from "mongoose";
 import { sendPushToUser } from "../notifications/server";
+import { materializeRecurring } from "@/lib/materializeRecurring";
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -21,6 +22,7 @@ export interface CreateExpenseInput {
 
 export async function getExpenses(groupId: string): Promise<ExpenseDTO[]> {
   await connectDB();
+  await materializeRecurring(groupId);
   const expenses = await Expense.find({
     groupId: new mongoose.Types.ObjectId(groupId),
   })
@@ -117,5 +119,6 @@ function toExpenseDTO(e: any): ExpenseDTO {
       settledAt:
         s.settledAt instanceof Date ? s.settledAt.toISOString() : s.settledAt, // ← aggiungi questa riga
     })),
+    recurringExpenseId: e.recurringExpenseId?.toString(),
   };
 }

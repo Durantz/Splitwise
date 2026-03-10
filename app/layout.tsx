@@ -14,6 +14,7 @@ import { authOptions } from "@/lib/auth";
 import SessionProvider from "@/components/SessionProvider";
 import { theme } from "@/lib/theme";
 import type { Metadata, Viewport } from "next";
+import NextTopLoader from "nextjs-toploader";
 
 export const metadata: Metadata = {
   title: "Splitwise — Spese condivise",
@@ -50,6 +51,10 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Splitwise" />
       </head>
       <body>
+        <NextTopLoader
+          color="var(--mantine-color-blue-6)"
+          showSpinner={false}
+        />
         <ColorSchemeScript defaultColorScheme="auto" />
         <MantineProvider theme={theme} defaultColorScheme="auto">
           <Notifications position="top-right" />

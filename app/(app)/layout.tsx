@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/session";
 import AppShellClient from "@/components/AppShellClient";
 
+
 export default async function AppLayout({
   children,
 }: {

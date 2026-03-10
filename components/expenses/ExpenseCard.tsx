@@ -11,7 +11,8 @@ import {
   Divider,
   Badge,
 } from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
+import { IconTrash, IconRepeat } from "@tabler/icons-react";
+import { useState } from "react";
 import { notifications } from "@mantine/notifications";
 import type { ExpenseDTO } from "@/types";
 import { CATEGORY_META } from "@/types";
@@ -33,8 +34,8 @@ export default function ExpenseCard({
 }: Props) {
   const iAmPayer = expense.paidBy.id === currentUserId;
   const meta = CATEGORY_META[expense.category];
+  const [deleting, setDeleting] = useState(false);
 
-  // Considera solo gli split di chi non ha pagato (il pagante non deve nulla a se stesso)
   const relevantSplits = expense.splits.filter(
     (s) => s.userId !== expense.paidBy.id
   );
@@ -42,7 +43,6 @@ export default function ExpenseCard({
     relevantSplits.length > 0 && relevantSplits.every((s) => s.settled);
   const someSettled = !allSettled && relevantSplits.some((s) => s.settled);
 
-  // Data di saldo: la più recente tra gli split saldati
   const settledAt = allSettled
     ? relevantSplits
         .map((s) => s.settledAt)
@@ -52,8 +52,17 @@ export default function ExpenseCard({
     : null;
 
   async function handleDelete() {
-    await deleteExpense(expense.id, groupId);
-    notifications.show({ message: "Spesa eliminata", color: "gray" });
+    setDeleting(true);
+    try {
+      await deleteExpense(expense.id, groupId);
+      notifications.show({ message: "Spesa eliminata", color: "gray" });
+    } catch {
+      notifications.show({
+        message: "Errore durante l'eliminazione",
+        color: "red",
+      });
+      setDeleting(false);
+    }
   }
 
   return (
@@ -84,6 +93,18 @@ export default function ExpenseCard({
               <Badge size="xs" color="yellow" variant="light">
                 Parz. saldato
               </Badge>
+            )}
+            {expense.recurringExpenseId && (
+              <Tooltip label="Generata da spesa ricorrente">
+                <Badge
+                  size="xs"
+                  color="violet"
+                  variant="light"
+                  leftSection={<IconRepeat size={10} />}
+                >
+                  Ricorrente
+                </Badge>
+              </Tooltip>
             )}
             <Text size="sm" fw={700} ff="monospace">
               {formatCurrency(expense.amount, currency)}
@@ -129,7 +150,6 @@ export default function ExpenseCard({
                   >
                     {formatCurrency(split.amount, currency)}
                   </Text>
-                  {/* Data saldo dello split, solo se non è il pagante */}
                   {!isPayer && split.settled && split.settledAt && (
                     <Text size="xs" c="teal">
                       {formatDate(split.settledAt)}
@@ -157,11 +177,14 @@ export default function ExpenseCard({
           </Stack>
 
           {iAmPayer && (
-            <Tooltip label="Elimina spesa">
+            <Tooltip
+              label={deleting ? "Eliminazione in corso..." : "Elimina spesa"}
+            >
               <ActionIcon
                 size="sm"
                 variant="light"
                 color="red"
+                loading={deleting}
                 onClick={handleDelete}
               >
                 <IconTrash size={14} />

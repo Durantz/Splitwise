@@ -20,6 +20,7 @@
     "mongoose": "^8.5.1",
     "next": "latest",
     "next-auth": "^4.24.7",
+    "nextjs-toploader": "^3.9.17",
     "react": "^19",
     "react-dom": "^19",
     "web-push": "^3.6.7"

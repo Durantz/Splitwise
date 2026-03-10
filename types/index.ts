@@ -55,6 +55,7 @@ export interface ExpenseDTO {
   paidBy: UserDTO;
   splits: SplitDTO[];
   notes?: string;
+  recurringExpenseId?: string;
 }
 
 export interface GroupDTO {

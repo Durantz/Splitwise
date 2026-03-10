@@ -17,7 +17,6 @@ export async function getDashboardData(
   const { start, end, label } = currentMonthRange();
   const myId = session.user.id;
 
-  // Tutte le spese con split popolati (servono per entrambi i calcoli)
   const allExpenses = await Expense.find({ groupId: gId })
     .populate("paidBy", "name email image")
     .populate("splits.userId", "name email image")
@@ -29,6 +28,9 @@ export async function getDashboardData(
   let monthlyTotal = 0;
   let monthlyOwedToMe = 0;
   let monthlyIOwe = 0;
+  // Calcolati direttamente dagli split aperti, non derivati da balances
+  let totalOwedToMe = 0;
+  let totalIOwe = 0;
 
   function addToBalance(user: UserDTO, delta: number) {
     const prev = balanceMap.get(user.id)?.amount ?? 0;
@@ -40,7 +42,6 @@ export async function getDashboardData(
     const iAmPayer = payer._id.toString() === myId;
     const isThisMonth = expense.date >= start && expense.date <= end;
 
-    // KPI mensili
     if (isThisMonth) {
       monthlyCount++;
       monthlyTotal += expense.amount;
@@ -48,16 +49,19 @@ export async function getDashboardData(
 
     for (const split of expense.splits) {
       if (split.settled) continue;
+
       const member = split.userId as any;
       const isMySplit = member._id.toString() === myId;
 
       if (iAmPayer && !isMySplit) {
         // Ho pagato io, l'altro mi deve
         addToBalance(toUserDTO(member), +split.amount);
+        totalOwedToMe += split.amount; // ← grezzo, senza nettare
         if (isThisMonth) monthlyOwedToMe += split.amount;
       } else if (!iAmPayer && isMySplit) {
         // Ha pagato un altro, io gli devo
         addToBalance(toUserDTO(payer), -split.amount);
+        totalIOwe += split.amount; // ← grezzo, senza nettare
         if (isThisMonth) monthlyIOwe += split.amount;
       }
     }
@@ -67,13 +71,7 @@ export async function getDashboardData(
     .map((b) => ({ ...b, amount: round2(b.amount) }))
     .filter((b) => Math.abs(b.amount) >= 0.01);
 
-  const totalOwedToMe = balances
-    .filter((b) => b.amount > 0)
-    .reduce((sum, b) => sum + b.amount, 0);
-
-  const totalIOwe = balances
-    .filter((b) => b.amount < 0)
-    .reduce((sum, b) => sum - b.amount, 0);
+  const netBalance = round2(totalOwedToMe - totalIOwe);
 
   return {
     monthLabel: label,
@@ -83,7 +81,7 @@ export async function getDashboardData(
     monthlyIOwe: round2(monthlyIOwe),
     totalOwedToMe: round2(totalOwedToMe),
     totalIOwe: round2(totalIOwe),
-    netBalance: round2(totalOwedToMe - totalIOwe),
+    netBalance,
     balances,
   };
 }

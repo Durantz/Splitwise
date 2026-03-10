@@ -1,8 +1,14 @@
 import mongoose, { Schema, Model } from "mongoose";
 
 export type ExpenseCategory =
-  | "food" | "transport" | "accommodation"
-  | "entertainment" | "shopping" | "utilities" | "health" | "other";
+  | "food"
+  | "transport"
+  | "accommodation"
+  | "entertainment"
+  | "shopping"
+  | "utilities"
+  | "health"
+  | "other";
 
 export interface ISplit {
   userId: mongoose.Types.ObjectId;
@@ -24,6 +30,7 @@ export interface IExpense {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  recurringExpenseId?: mongoose.Types.ObjectId;
 }
 
 const ExpenseSchema = new Schema<IExpense>(
@@ -33,7 +40,16 @@ const ExpenseSchema = new Schema<IExpense>(
     description: { type: String, required: true, trim: true },
     category: {
       type: String,
-      enum: ["food", "transport", "accommodation", "entertainment", "shopping", "utilities", "health", "other"],
+      enum: [
+        "food",
+        "transport",
+        "accommodation",
+        "entertainment",
+        "shopping",
+        "utilities",
+        "health",
+        "other",
+      ],
       default: "other",
     },
     amount: { type: Number, required: true, min: 0.01 },
@@ -49,6 +65,10 @@ const ExpenseSchema = new Schema<IExpense>(
       },
     ],
     notes: { type: String, trim: true },
+    recurringExpenseId: {
+      type: Schema.Types.ObjectId,
+      ref: "RecurringExpense",
+    },
   },
   { timestamps: true }
 );

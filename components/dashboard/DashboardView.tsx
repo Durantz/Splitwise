@@ -51,7 +51,7 @@ export default function DashboardView({
         <GroupSelector groups={groups} activeGroupId={activeGroup.id} />
       </Group>
 
-      {/* ── Riga 1: situazione totale aperta ── */}
+      {/* ── Totale aperto ── */}
       <Stack gap="xs">
         <Text
           size="xs"
@@ -62,7 +62,9 @@ export default function DashboardView({
         >
           Totale aperto
         </Text>
-        <SimpleGrid cols={3} spacing="sm">
+
+        {/* Ti devono + Devi dare: 2 colonne */}
+        <SimpleGrid cols={2} spacing="sm">
           <Card p="md">
             <ThemeIcon variant="light" color="teal" size="sm" mb="xs">
               <IconTrendingUp size={14} />
@@ -86,32 +88,36 @@ export default function DashboardView({
               Devi dare
             </Text>
           </Card>
+        </SimpleGrid>
 
-          <Card p="lg" bg={netPositive ? "dark.8" : "white"}>
-            <ThemeIcon
-              variant="light"
-              color={netPositive ? "teal" : "red"}
-              size="sm"
-              mb="xs"
-            >
-              <IconScale size={14} />
-            </ThemeIcon>
+        {/* Saldo netto: full width */}
+        <Card p="md" bg={netPositive ? "dark.8" : undefined}>
+          <Group justify="space-between" align="center">
+            <Group gap="xs">
+              <ThemeIcon
+                variant="light"
+                color={netPositive ? "teal" : "red"}
+                size="sm"
+              >
+                <IconScale size={14} />
+              </ThemeIcon>
+              <Text size="xs" c={netPositive ? "dark.4" : "dimmed"}>
+                {data.netBalance > 0
+                  ? "Sei in credito"
+                  : data.netBalance < 0
+                  ? "Sei in debito"
+                  : "Tutto in pari 🎉"}
+              </Text>
+            </Group>
             <Text size="xl" fw={700} lh={1} c={netPositive ? "white" : "red"}>
               {data.netBalance >= 0 ? "+" : ""}
               {formatCurrency(data.netBalance, c)}
             </Text>
-            <Text size="xs" c={netPositive ? "dark.4" : "dimmed"} mt={4}>
-              {data.netBalance > 0
-                ? "Sei in credito"
-                : data.netBalance < 0
-                ? "Sei in debito"
-                : "Tutto in pari 🎉"}
-            </Text>
-          </Card>
-        </SimpleGrid>
+          </Group>
+        </Card>
       </Stack>
 
-      {/* ── Riga 2: mese corrente ── */}
+      {/* ── Mese corrente ── */}
       <Stack gap="xs">
         <Text
           size="xs"
@@ -122,31 +128,9 @@ export default function DashboardView({
         >
           {data.monthLabel}
         </Text>
-        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-          <Card p="md">
-            <ThemeIcon variant="light" color="gray" size="sm" mb="xs">
-              <IconReceipt size={14} />
-            </ThemeIcon>
-            <Text size="xl" fw={700} lh={1}>
-              {data.monthlyCount}
-            </Text>
-            <Text size="xs" c="dimmed" mt={4}>
-              Spese
-            </Text>
-          </Card>
 
-          <Card p="md">
-            <ThemeIcon variant="light" color="gray" size="sm" mb="xs">
-              <IconCalendar size={14} />
-            </ThemeIcon>
-            <Text size="xl" fw={700} lh={1}>
-              {formatCurrency(data.monthlyTotal, c)}
-            </Text>
-            <Text size="xs" c="dimmed" mt={4}>
-              Speso
-            </Text>
-          </Card>
-
+        {/* Ti devono + Devi dare: 2 colonne */}
+        <SimpleGrid cols={2} spacing="sm">
           <Card p="md">
             <ThemeIcon variant="light" color="teal" size="sm" mb="xs">
               <IconTrendingUp size={14} />
@@ -171,6 +155,32 @@ export default function DashboardView({
             </Text>
           </Card>
         </SimpleGrid>
+
+        {/* Spese + Speso: full width orizzontale */}
+        <Card p="md">
+          <Group justify="space-between" align="center">
+            <Group gap="xs">
+              <ThemeIcon variant="light" color="gray" size="sm">
+                <IconReceipt size={14} />
+              </ThemeIcon>
+              <Text size="xs" c="dimmed">
+                {data.monthlyCount}{" "}
+                {data.monthlyCount === 1 ? "spesa" : "spese"}
+              </Text>
+            </Group>
+            <Group gap="xs">
+              <ThemeIcon variant="light" color="gray" size="sm">
+                <IconCalendar size={14} />
+              </ThemeIcon>
+              <Text size="sm" fw={700} ff="monospace">
+                {formatCurrency(data.monthlyTotal, c)}
+              </Text>
+              <Text size="xs" c="dimmed">
+                speso
+              </Text>
+            </Group>
+          </Group>
+        </Card>
       </Stack>
 
       {/* ── Dettaglio per persona ── */}
