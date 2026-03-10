@@ -6,6 +6,7 @@ import { Expense } from "@/lib/models/Expense";
 import { requireSession } from "@/lib/session";
 import type { ExpenseDTO, ExpenseCategory } from "@/types";
 import mongoose from "mongoose";
+import { sendPushToUser } from "../notifications/server";
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -31,7 +32,7 @@ export async function getExpenses(groupId: string): Promise<ExpenseDTO[]> {
 }
 
 export async function createExpense(input: CreateExpenseInput) {
-  await requireSession();
+  const session = await requireSession();
   await connectDB();
 
   await Expense.create({
@@ -52,6 +53,21 @@ export async function createExpense(input: CreateExpenseInput) {
 
   revalidatePath(`/groups/${input.groupId}`);
   revalidatePath("/dashboard");
+
+  const payerName = session.user.name ?? "Qualcuno";
+  const otherUserIds = input.splits
+    .map((s) => s.userId)
+    .filter((id) => id !== input.paidBy);
+
+  await Promise.allSettled(
+    otherUserIds.map((userId) =>
+      sendPushToUser(userId, {
+        title: "Nuova spesa 💸",
+        body: `${payerName} ha aggiunto "${input.description}"`,
+        url: `/groups/${input.groupId}`,
+      })
+    )
+  );
 }
 
 export async function markSplitSettled(

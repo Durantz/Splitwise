@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ActionIcon, Tooltip } from "@mantine/core";
+import { Button, Tooltip } from "@mantine/core";
 import { IconBell, IconBellOff, IconBellRinging } from "@tabler/icons-react";
 import { saveSubscription } from "@/app/(app)/notifications/server";
 
@@ -15,11 +15,8 @@ export default function NotificationToggle() {
       setStatus("unsupported");
       return;
     }
-    if (Notification.permission === "granted") {
-      setStatus("granted");
-    } else if (Notification.permission === "denied") {
-      setStatus("denied");
-    }
+    if (Notification.permission === "granted") setStatus("granted");
+    else if (Notification.permission === "denied") setStatus("denied");
   }, []);
 
   async function enable() {
@@ -49,40 +46,42 @@ export default function NotificationToggle() {
 
   if (status === "unsupported") return null;
 
-  const label =
-    status === "granted"
-      ? "Notifiche attive"
-      : status === "denied"
-      ? "Notifiche bloccate dal browser"
-      : status === "loading"
-      ? "Attivazione…"
-      : "Attiva notifiche";
+  if (status === "granted") {
+    return (
+      <Tooltip label="Notifiche attive" position="right">
+        <IconBellRinging
+          size={16}
+          stroke={1.5}
+          color="var(--mantine-color-green-6)"
+        />
+      </Tooltip>
+    );
+  }
 
-  const Icon =
-    status === "granted"
-      ? IconBellRinging
-      : status === "denied"
-      ? IconBellOff
-      : IconBell;
-
-  const color =
-    status === "granted" ? "green" : status === "denied" ? "red" : "gray";
+  if (status === "denied") {
+    return (
+      <Tooltip
+        label="Notifiche bloccate — abilitale dalle impostazioni del browser"
+        position="right"
+      >
+        <IconBellOff
+          size={16}
+          stroke={1.5}
+          color="var(--mantine-color-red-6)"
+        />
+      </Tooltip>
+    );
+  }
 
   return (
-    <Tooltip label={label} position="right">
-      <ActionIcon
-        variant="subtle"
-        color={color}
-        loading={status === "loading"}
-        onClick={status === "default" ? enable : undefined}
-        style={{
-          cursor:
-            status === "granted" || status === "denied" ? "default" : "pointer",
-        }}
-        aria-label={label}
-      >
-        <Icon size={16} stroke={1.5} />
-      </ActionIcon>
-    </Tooltip>
+    <Button
+      size="xs"
+      variant="light"
+      leftSection={<IconBell size={14} stroke={1.5} />}
+      loading={status === "loading"}
+      onClick={enable}
+    >
+      Attiva notifiche
+    </Button>
   );
 }

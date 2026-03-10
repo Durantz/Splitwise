@@ -108,17 +108,15 @@ export default function AppNav({ user }: AppNavProps) {
               {user.email}
             </Text>
           </Box>
-        </Group>
-        <Group gap={4}>
-          <NavLink
-            label="Esci"
-            leftSection={<IconLogout size={16} stroke={1.5} />}
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
-            c="red"
-          />
           <NotificationToggle />
         </Group>
+        <NavLink
+          label="Esci"
+          leftSection={<IconLogout size={16} stroke={1.5} />}
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
+          c="red"
+        />
       </Stack>
     </Stack>
   );
