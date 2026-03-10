@@ -13,18 +13,22 @@ import {
   Alert,
 } from "@mantine/core";
 import { IconBrandGoogle, IconAlertCircle } from "@tabler/icons-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
   return (
-    <Center h="100vh" bg="gray.0">
+    <Center h="100vh">
       <Stack align="center" gap="xl" w={360} px="md">
         <Stack align="center" gap="xs">
-          <ThemeIcon size={52} radius="xl" color="dark" variant="filled">
-            <span style={{ fontSize: 24 }}>💸</span>
-          </ThemeIcon>
+          <Image
+            src="/web-app-manifest-192x192.png"
+            alt="Splitwise"
+            width={22}
+            height={22}
+          />
           <Title order={2} fw={600} ta="center">
             Split
           </Title>

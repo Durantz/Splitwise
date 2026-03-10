@@ -1,8 +1,8 @@
 import { Container, Title, Text, Stack, Anchor, Divider } from "@mantine/core";
 
 const APP_NAME = "Splitwise"; // <- sostituisci con il nome della tua app
-const APP_URL = "https://r78fm3-3000.csb.app/"; // <- sostituisci con il tuo dominio
-const CONTACT_EMAIL = "antonio.durante@test.com"; // <- sostituisci con la tua email
+const APP_URL = "https://splitwise-flame.vercel.app"; // <- sostituisci con il tuo dominio
+const CONTACT_EMAIL = "antonio.durante1988@gmail.com"; // <- sostituisci con la tua email
 const LAST_UPDATED = "10 marzo 2025";
 
 export const metadata = {

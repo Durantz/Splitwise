@@ -13,11 +13,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import SessionProvider from "@/components/SessionProvider";
 import { theme } from "@/lib/theme";
-import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport, MetadataRoute } from "next";
 
 export const metadata: Metadata = {
-  title: "Split — Spese condivise",
+  title: "Splitwise — Spese condivise",
   description: "Gestisci le spese condivise con il tuo gruppo.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Splitwise",
+  },
 };
 
 export const viewport: Viewport = {
@@ -36,6 +42,9 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
   return (
     <html lang="it" {...mantineHtmlProps}>
+      <head>
+        <meta name="apple-mobile-web-app-title" content="Splitwise" />
+      </head>
       <body>
         <ColorSchemeScript defaultColorScheme="auto" />
         <MantineProvider theme={theme} defaultColorScheme="auto">

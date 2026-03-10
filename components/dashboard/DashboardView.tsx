@@ -62,7 +62,7 @@ export default function DashboardView({
         >
           Totale aperto
         </Text>
-        <SimpleGrid id="dashboard-totale" cols={3} spacing="sm">
+        <SimpleGrid cols={3} spacing="sm">
           <Card p="md">
             <ThemeIcon variant="light" color="teal" size="sm" mb="xs">
               <IconTrendingUp size={14} />
@@ -122,7 +122,7 @@ export default function DashboardView({
         >
           {data.monthLabel}
         </Text>
-        <SimpleGrid id="dashboard-mese" cols={{ base: 2, sm: 4 }} spacing="sm">
+        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
           <Card p="md">
             <ThemeIcon variant="light" color="gray" size="sm" mb="xs">
               <IconReceipt size={14} />

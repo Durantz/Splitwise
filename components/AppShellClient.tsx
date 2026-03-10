@@ -5,6 +5,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import AppNav from "@/components/AppNav";
+import Image from "next/image";
 
 interface Props {
   user: {
@@ -38,22 +39,14 @@ export default function AppShellClient({ user, children }: Props) {
       <AppShell.Header zIndex={200}>
         <Group h="100%" px="md" gap="sm">
           <Burger opened={opened} onClick={toggle} size="sm" hiddenFrom="sm" />
-          <Box
-            w={22}
-            h={22}
-            style={{
-              borderRadius: 6,
-              background: "var(--mantine-color-dark-6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 13,
-            }}
-          >
-            💸
-          </Box>
+          <Image
+            src="/web-app-manifest-192x192.png"
+            alt="Splitwise"
+            width={22}
+            height={22}
+          />
           <Text fw={700} size="sm">
-            Split
+            Splitwise
           </Text>
         </Group>
       </AppShell.Header>

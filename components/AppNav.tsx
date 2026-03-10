@@ -19,6 +19,7 @@ import {
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import NotificationToggle from "./NotificationToggle";
 
 interface AppNavProps {
   user: {
@@ -108,13 +109,16 @@ export default function AppNav({ user }: AppNavProps) {
             </Text>
           </Box>
         </Group>
-        <NavLink
-          label="Esci"
-          leftSection={<IconLogout size={16} stroke={1.5} />}
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
-          c="red"
-        />
+        <Group gap={4}>
+          <NavLink
+            label="Esci"
+            leftSection={<IconLogout size={16} stroke={1.5} />}
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            styles={{ root: { borderRadius: "var(--mantine-radius-md)" } }}
+            c="red"
+          />
+          <NotificationToggle />
+        </Group>
       </Stack>
     </Stack>
   );
