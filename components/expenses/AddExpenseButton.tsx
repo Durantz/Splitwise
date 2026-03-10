@@ -81,7 +81,12 @@ export default function AddExpenseButton({ group, currentUserId }: Props) {
     validate: {
       description: (v: string) => (!v.trim() ? "Campo obbligatorio" : null),
       amount: (v: number) => (v <= 0 ? "Importo non valido" : null),
+      date: (v: Date) => (!v ? "Data obbligatoria" : null),
     },
+    transformValues: (values) => ({
+      ...values,
+      date: values.date instanceof Date ? values.date : new Date(values.date),
+    }),
   });
 
   // Ricalcola percentuali equali quando cambiano i partecipanti

@@ -35,14 +35,14 @@ export async function createExpense(input: CreateExpenseInput) {
   await connectDB();
 
   await Expense.create({
-    groupId: input.groupId,
-    paidBy: input.paidBy,
+    groupId: new mongoose.Types.ObjectId(input.groupId),
+    paidBy: new mongoose.Types.ObjectId(input.paidBy),
     description: input.description,
     category: input.category,
     amount: input.amount,
     date: new Date(input.date),
     splits: input.splits.map((s) => ({
-      userId: s.userId,
+      userId: new mongoose.Types.ObjectId(s.userId),
       percentage: s.percentage,
       amount: s.amount,
       settled: false,
