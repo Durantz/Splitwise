@@ -13,7 +13,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import SessionProvider from "@/components/SessionProvider";
 import { theme } from "@/lib/theme";
-import type { Metadata, Viewport, MetadataRoute } from "next";
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "Splitwise — Spese condivise",
@@ -23,6 +23,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Splitwise",
+  },
+  icons: {
+    apple: "/apple-icon.png",
+    icon: "/favicon.ico",
   },
 };
 
