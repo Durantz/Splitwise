@@ -87,12 +87,16 @@ export function useXlsxParser(): UseCsvParserReturn {
             .map((l) => l.trim())
             .filter((l) => l.length > 0);
 
-          // Trova la riga header cercando "Data contabile"
+          // Trova la riga header cercando "Data contabile" — deve essere una riga CSV con semicoloni
           let headerIdx = -1;
           let headers: string[] = [];
           for (let i = 0; i < Math.min(lines.length, 15); i++) {
             const cols = parseCsvLine(lines[i]);
-            if (cols.some((c) => /data\s*contabile/i.test(c))) {
+            // La riga header deve avere almeno 4 colonne e contenere "data contabile"
+            if (
+              cols.length >= 4 &&
+              cols.some((c) => /^data\s*contabile$/i.test(c.trim()))
+            ) {
               headerIdx = i;
               headers = cols.map((c) => c.toLowerCase().trim());
               break;
