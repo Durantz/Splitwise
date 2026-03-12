@@ -185,7 +185,7 @@ function DailyLineChart({
     );
 
     // Cumulativo giornaliero — i giorni senza transazioni ereditano il valore precedente
-    const result: { day: number; [key: string]: number | null }[] = [];
+    const result: Array<Record<string, number | null>> = [];
     let cumA = 0;
     let cumB = 0;
     for (let day = 1; day <= maxDay; day++) {
