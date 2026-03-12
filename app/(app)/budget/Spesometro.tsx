@@ -527,7 +527,7 @@ export function Spesometro({
 
       <Group justify="space-between" mb="xl">
         <Title order={2}>Budget</Title>
-        <Group gap="sm">
+        <Group gap="xs">
           <SegmentedControl
             value={mode}
             onChange={handleModeChange}

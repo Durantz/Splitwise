@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect, useRef } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import {
   Stack,
   Title,
   TextInput,
-  Table,
   Select,
   Button,
   ActionIcon,
@@ -40,7 +39,6 @@ import {
   deleteTransactionCategory,
   getTransactionCategories,
   getCategoryRules,
-  createCategoryRule,
   updateCategoryRule,
   deleteCategoryRule,
   previewRuleMatches,
@@ -196,77 +194,61 @@ function MappingsTab({
           Nessuna voce trovata.
         </Text>
       ) : (
-        <>
-          <Table.ScrollContainer minWidth={480}>
-            <Table withTableBorder withRowBorders verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Descrizione</Table.Th>
-                  <Table.Th w={220}>Categoria</Table.Th>
-                  <Table.Th w={140}></Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {items.map((item) => {
-                  const state = rowStates[item.id] ?? {
-                    category: item.category,
-                    saving: false,
-                  };
-                  const isDirty = state.category !== item.category;
-                  return (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>
-                        <Text size="sm" style={{ wordBreak: "break-word" }}>
-                          {item.normalizedDescription}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Select
-                          data={CATEGORY_SELECT_DATA}
-                          value={state.category}
-                          onChange={(val) => handleCategoryChange(item.id, val)}
-                          size="xs"
-                          allowDeselect={false}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" wrap="nowrap" justify="flex-end">
-                          {isDirty && (
-                            <Button
-                              size="xs"
-                              loading={state.saving}
-                              onClick={() => handleSave(item)}
-                            >
-                              Salva
-                            </Button>
-                          )}
-                          <ActionIcon
-                            color="blue"
-                            variant="subtle"
-                            size="sm"
-                            onClick={() => onCreateRule(item)}
-                            aria-label="Crea regola"
-                            title="Crea regola da questo mapping"
-                          >
-                            <IconWand size={15} />
-                          </ActionIcon>
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            size="sm"
-                            onClick={() => setDeleteTarget(item)}
-                            aria-label="Elimina"
-                          >
-                            <IconTrash size={15} />
-                          </ActionIcon>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+        <Stack gap="xs">
+          {items.map((item) => {
+            const state = rowStates[item.id] ?? {
+              category: item.category,
+              saving: false,
+            };
+            const isDirty = state.category !== item.category;
+            return (
+              <Paper key={item.id} withBorder p="sm">
+                <Stack gap="xs">
+                  <Text size="sm" style={{ wordBreak: "break-word" }}>
+                    {item.normalizedDescription}
+                  </Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Select
+                      data={CATEGORY_SELECT_DATA}
+                      value={state.category}
+                      onChange={(val) => handleCategoryChange(item.id, val)}
+                      size="xs"
+                      allowDeselect={false}
+                      style={{ flex: 1 }}
+                    />
+                    {isDirty && (
+                      <Button
+                        size="xs"
+                        loading={state.saving}
+                        onClick={() => handleSave(item)}
+                      >
+                        Salva
+                      </Button>
+                    )}
+                    <ActionIcon
+                      color="blue"
+                      variant="subtle"
+                      size="sm"
+                      onClick={() => onCreateRule(item)}
+                      aria-label="Crea regola"
+                      title="Crea regola da questo mapping"
+                    >
+                      <IconWand size={15} />
+                    </ActionIcon>
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      size="sm"
+                      onClick={() => setDeleteTarget(item)}
+                      aria-label="Elimina"
+                    >
+                      <IconTrash size={15} />
+                    </ActionIcon>
+                  </Group>
+                </Stack>
+              </Paper>
+            );
+          })}
 
           <Group justify="space-between" align="center">
             <Text size="sm" c="dimmed">
@@ -281,7 +263,7 @@ function MappingsTab({
               />
             )}
           </Group>
-        </>
+        </Stack>
       )}
 
       <Modal
@@ -372,30 +354,19 @@ function RulesTab({ rules, onRefresh }: RulesTabProps) {
           sopra.
         </Text>
       ) : (
-        <Table.ScrollContainer minWidth={480}>
-          <Table withTableBorder withRowBorders verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Pattern</Table.Th>
-                <Table.Th w={160}>Categoria</Table.Th>
-                <Table.Th w={70} ta="center">
-                  Priorità
-                </Table.Th>
-                <Table.Th w={90} ta="center">
-                  Override
-                </Table.Th>
-                <Table.Th w={80}></Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rules.map((rule) => (
-                <Table.Tr key={rule.id}>
-                  <Table.Td>
-                    <Text size="sm" ff="monospace">
-                      {rule.pattern}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
+        <Stack gap="xs">
+          {rules.map((rule) => (
+            <Paper key={rule.id} withBorder p="sm">
+              <Group justify="space-between" wrap="nowrap">
+                <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    size="sm"
+                    ff="monospace"
+                    style={{ wordBreak: "break-word" }}
+                  >
+                    {rule.pattern}
+                  </Text>
+                  <Group gap="xs">
                     <Badge
                       color={getCategoryColor(rule.category)}
                       variant="light"
@@ -404,44 +375,39 @@ function RulesTab({ rules, onRefresh }: RulesTabProps) {
                       {CATEGORIES.find((c) => c.value === rule.category)
                         ?.label ?? rule.category}
                     </Badge>
-                  </Table.Td>
-                  <Table.Td ta="center">
-                    <Text size="sm">{rule.priority}</Text>
-                  </Table.Td>
-                  <Table.Td ta="center">
-                    <Text size="sm" c={rule.overridesExact ? "blue" : "dimmed"}>
-                      {rule.overridesExact ? "Sì" : "No"}
+                    <Text size="xs" c="dimmed">
+                      priorità {rule.priority}
                     </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" justify="flex-end">
-                      <ActionIcon
-                        variant="subtle"
-                        size="sm"
-                        onClick={() => setEditTarget(rule)}
-                        aria-label="Modifica"
-                      >
-                        <IconPencil size={15} />
-                      </ActionIcon>
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        size="sm"
-                        onClick={() => setDeleteTarget(rule)}
-                        aria-label="Elimina"
-                      >
-                        <IconTrash size={15} />
-                      </ActionIcon>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+                    {rule.overridesExact && (
+                      <Badge size="xs" color="blue" variant="outline">
+                        override
+                      </Badge>
+                    )}
+                  </Group>
+                </Stack>
+                <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                  <ActionIcon
+                    variant="subtle"
+                    size="sm"
+                    onClick={() => setEditTarget(rule)}
+                  >
+                    <IconPencil size={15} />
+                  </ActionIcon>
+                  <ActionIcon
+                    color="red"
+                    variant="subtle"
+                    size="sm"
+                    onClick={() => setDeleteTarget(rule)}
+                  >
+                    <IconTrash size={15} />
+                  </ActionIcon>
+                </Group>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
       )}
 
-      {/* Modal nuova regola */}
       <RuleFormModal
         opened={addOpen}
         onClose={() => setAddOpen(false)}
@@ -451,7 +417,6 @@ function RulesTab({ rules, onRefresh }: RulesTabProps) {
         }}
       />
 
-      {/* Modal modifica regola */}
       {editTarget && (
         <RuleFormModal
           opened={!!editTarget}
@@ -464,7 +429,6 @@ function RulesTab({ rules, onRefresh }: RulesTabProps) {
         />
       )}
 
-      {/* Modal conferma eliminazione */}
       <Modal
         opened={!!deleteTarget}
         onClose={() => !isDeleting && setDeleteTarget(null)}
@@ -502,7 +466,7 @@ function RulesTab({ rules, onRefresh }: RulesTabProps) {
   );
 }
 
-// ── Modal form regola (nuovo / modifica) ─────────────────────────────────────
+// ── Modal form regola ────────────────────────────────────────────────────────
 
 interface RuleFormModalProps {
   opened: boolean;
@@ -530,12 +494,10 @@ function RuleFormModal({
     existing?.overridesExact ?? false
   );
   const [saving, setSaving] = useState(false);
-
   const [debouncedPattern] = useDebouncedValue(pattern, 400);
   const [preview, setPreview] = useState<TransactionCategoryDTO[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  // Reset quando si apre il modal
   useEffect(() => {
     if (opened) {
       setPattern(existing?.pattern ?? prefillPattern);
@@ -546,7 +508,6 @@ function RuleFormModal({
     }
   }, [opened]);
 
-  // Preview live al cambio pattern (solo in modalità crea/crea-da-mapping)
   useEffect(() => {
     if (!debouncedPattern.trim() || existing) {
       setPreview([]);
@@ -622,7 +583,7 @@ function RuleFormModal({
           allowDeselect={false}
         />
 
-        <Group grow>
+        <Group grow align="flex-start">
           <NumberInput
             label="Priorità"
             description="Numero più basso = applicata prima"
@@ -636,11 +597,10 @@ function RuleFormModal({
             description="Vince anche se esiste un mapping preciso"
             checked={overridesExact}
             onChange={(e) => setOverridesExact(e.target.checked)}
-            mt="xl"
+            mt={24}
           />
         </Group>
 
-        {/* Preview mapping che verranno eliminati — solo in modalità crea */}
         {isNew && (
           <>
             <Divider
