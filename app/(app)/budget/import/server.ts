@@ -68,13 +68,21 @@ export async function importTransactions(
     }
 
     await Transaction.insertMany(
-      payload.transactions.map((t) => ({
-        userId,
-        periodId: period._id,
-        date: new Date(t.date),
-        amount: t.amount,
-        category: t.category,
-      }))
+      payload.transactions.map((t) => {
+        // Parsiamo solo anno/mese/giorno dall'ISO string e salviamo a mezzogiorno UTC
+        // per evitare shift di timezone (es. CET = UTC+1 sposterebbe al giorno prima)
+        const d = new Date(t.date);
+        const normalized = new Date(
+          Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)
+        );
+        return {
+          userId,
+          periodId: period._id,
+          date: normalized,
+          amount: t.amount,
+          category: t.category,
+        };
+      })
     );
 
     revalidatePath("/budget");

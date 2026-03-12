@@ -62,25 +62,11 @@ export async function getPeriodStats(periodId: string): Promise<PeriodStats> {
   await connectDB();
 
   const oid = new mongoose.Types.ObjectId(periodId);
-
-  // Recupera le date del periodo per filtrare le transazioni fuori range
-  const period = await Period.findOne({
-    _id: oid,
-    userId: session.user.id,
-  }).lean();
-  if (!period) return { categories: [], dailyTotals: [], grandTotal: 0 };
-
-  const baseMatch = { userId: session.user.id, periodId: oid };
-  const dateMatch = {
-    userId: session.user.id,
-    periodId: oid,
-    date: { $gte: period.from, $lte: period.to },
-  };
+  const match = { userId: session.user.id, periodId: oid };
 
   const [byCategory, byDay] = await Promise.all([
-    // Le categorie usano tutte le transazioni del periodo (incluse date valuta fuori range)
     Transaction.aggregate([
-      { $match: baseMatch },
+      { $match: match },
       {
         $group: {
           _id: "$category",
@@ -90,12 +76,17 @@ export async function getPeriodStats(periodId: string): Promise<PeriodStats> {
       },
       { $sort: { total: 1 } },
     ]),
-    // Il grafico giornaliero filtra solo le transazioni dentro il range
     Transaction.aggregate([
-      { $match: dateMatch },
+      { $match: match },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$date",
+              timezone: "Europe/Rome",
+            },
+          },
           total: { $sum: "$amount" },
         },
       },
