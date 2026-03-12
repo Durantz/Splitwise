@@ -435,50 +435,89 @@ export function ImportWizard({
         Importa estratto conto
       </Title>
 
-      <Stepper active={active} mb="xl">
-        <Stepper.Step label="Carica file" description="Seleziona il tuo xlsx" />
-        <Stepper.Step label="Categorie" description="Classifica i movimenti" />
-        <Stepper.Step label="Riepilogo" description="Conferma e salva" />
-        <Stepper.Completed>
-          <Center mt="xl">
-            <Stack align="center">
-              <IconCheck size={48} color="green" />
-              <Title order={3}>Importazione completata!</Title>
-              <Text c="dimmed">
-                Vai al <a href="/budget">budget</a> per analizzare i dati.
+      {/* Step indicator compatto — funziona su qualsiasi larghezza */}
+      {active < 3 && (
+        <Group justify="center" mb="xl" gap="xs">
+          {["Carica file", "Categorie", "Riepilogo"].map((label, i) => (
+            <Group key={i} gap={6} wrap="nowrap">
+              <Text
+                size="sm"
+                fw={700}
+                w={26}
+                h={26}
+                style={{
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor:
+                    i < active
+                      ? "var(--mantine-color-green-6)"
+                      : i === active
+                      ? "var(--mantine-color-blue-6)"
+                      : "var(--mantine-color-dark-4)",
+                  color: "white",
+                  flexShrink: 0,
+                }}
+              >
+                {i < active ? "✓" : i + 1}
               </Text>
-            </Stack>
-          </Center>
-        </Stepper.Completed>
-      </Stepper>
+              <Text
+                size="sm"
+                c={i === active ? "blue" : i < active ? "green" : "dimmed"}
+                fw={i === active ? 600 : 400}
+              >
+                {label}
+              </Text>
+              {i < 2 && (
+                <Text c="dimmed" size="sm">
+                  ›
+                </Text>
+              )}
+            </Group>
+          ))}
+        </Group>
+      )}
 
-      <Paper p="lg" withBorder>
-        {active === 0 && (
-          <StepUpload
-            onParsed={(rows) => {
-              setParsedRows(rows);
-              setActive(1);
-            }}
-            existingMappings={existingMappings}
-          />
-        )}
-        {active === 1 && (
-          <StepCategorize
-            rows={parsedRows}
-            onDone={(rows) => {
-              setCategorizedRows(rows);
-              setActive(2);
-            }}
-          />
-        )}
-        {active === 2 && (
-          <StepSummary
-            rows={categorizedRows}
-            onImport={handleImport}
-            loading={isPending}
-          />
-        )}
-      </Paper>
+      {active === 3 ? (
+        <Center mt="xl">
+          <Stack align="center">
+            <IconCheck size={48} color="green" />
+            <Title order={3}>Importazione completata!</Title>
+            <Text c="dimmed">
+              Vai al <a href="/budget">budget</a> per analizzare i dati.
+            </Text>
+          </Stack>
+        </Center>
+      ) : (
+        <Paper p="lg" withBorder>
+          {active === 0 && (
+            <StepUpload
+              onParsed={(rows) => {
+                setParsedRows(rows);
+                setActive(1);
+              }}
+              existingMappings={existingMappings}
+            />
+          )}
+          {active === 1 && (
+            <StepCategorize
+              rows={parsedRows}
+              onDone={(rows) => {
+                setCategorizedRows(rows);
+                setActive(2);
+              }}
+            />
+          )}
+          {active === 2 && (
+            <StepSummary
+              rows={categorizedRows}
+              onImport={handleImport}
+              loading={isPending}
+            />
+          )}
+        </Paper>
+      )}
     </Container>
   );
 }

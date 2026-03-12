@@ -120,55 +120,95 @@ function CategoryCompareTable({
   }, [statsA, statsB]);
 
   return (
-    <Stack gap="xs">
-      <Group justify="space-between" px="xs">
-        <Text size="sm" fw={600} style={{ flex: 1 }}>
-          Categoria
-        </Text>
-        <Text size="sm" fw={600} w={110} ta="right">
-          {labelA}
-        </Text>
-        <Text size="sm" fw={600} w={110} ta="right">
-          {labelB}
-        </Text>
-        <Text size="sm" fw={600} w={80} ta="right">
-          Δ
-        </Text>
-      </Group>
-      <Divider />
-      {rows.map(({ category, totalA, totalB }) => (
-        <Group key={category} justify="space-between" px="xs" py={4}>
-          <Badge
-            color={getCategoryColor(category)}
-            variant="light"
-            style={{ flex: 1 }}
-          >
-            {getCategoryLabel(category)}
-          </Badge>
-          <Text
-            size="sm"
-            w={110}
-            ta="right"
-            c={totalA >= 0 ? "green" : "red"}
-            fw={500}
-          >
-            {formatEur(totalA)}
-          </Text>
-          <Text
-            size="sm"
-            w={110}
-            ta="right"
-            c={totalB >= 0 ? "green" : "red"}
-            fw={500}
-          >
-            {formatEur(totalB)}
-          </Text>
-          <Group w={80} justify="flex-end">
-            <DeltaBadge a={totalB} b={totalA} />
-          </Group>
-        </Group>
-      ))}
-    </Stack>
+    <div style={{ overflowX: "auto" }}>
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}
+      >
+        <thead>
+          <tr>
+            <th
+              style={{
+                textAlign: "left",
+                padding: "4px 8px",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Categoria
+            </th>
+            <th
+              style={{
+                textAlign: "right",
+                padding: "4px 8px",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {labelA}
+            </th>
+            <th
+              style={{
+                textAlign: "right",
+                padding: "4px 8px",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {labelB}
+            </th>
+            <th
+              style={{
+                textAlign: "right",
+                padding: "4px 8px",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Δ
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ category, totalA, totalB }) => (
+            <tr key={category}>
+              <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                <Badge color={getCategoryColor(category)} variant="light">
+                  {getCategoryLabel(category)}
+                </Badge>
+              </td>
+              <td
+                style={{
+                  textAlign: "right",
+                  padding: "6px 8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text size="sm" c={totalA >= 0 ? "green" : "red"} fw={500}>
+                  {formatEur(totalA)}
+                </Text>
+              </td>
+              <td
+                style={{
+                  textAlign: "right",
+                  padding: "6px 8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text size="sm" c={totalB >= 0 ? "green" : "red"} fw={500}>
+                  {formatEur(totalB)}
+                </Text>
+              </td>
+              <td style={{ textAlign: "right", padding: "6px 8px" }}>
+                <DeltaBadge a={totalB} b={totalA} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -237,34 +277,49 @@ function DailyLineChart({
   statsB,
   labelA,
   labelB,
+  fromA,
 }: {
   statsA: PeriodStats;
   statsB: PeriodStats;
   labelA: string;
   labelB: string;
+  fromA: string; // data inizio periodo A — usata come "giorno 1" per entrambi
 }) {
   const data = useMemo(() => {
-    // Unione di tutte le date reali presenti nei due periodi
-    const allDates = Array.from(
-      new Set([
-        ...statsA.dailyTotals.map((d) => d.date),
-        ...statsB.dailyTotals.map((d) => d.date),
-      ])
-    ).sort();
+    const startA = new Date(fromA).getTime();
+    const MS_DAY = 86400000;
 
-    const mapA = new Map(statsA.dailyTotals.map((d) => [d.date, d.total]));
-    const mapB = new Map(statsB.dailyTotals.map((d) => [d.date, d.total]));
+    // Entrambi i periodi si allineano al giorno 1 = primo giorno del periodo A
+    const mapA = new Map<number, number>();
+    for (const d of statsA.dailyTotals) {
+      const rel =
+        Math.round((new Date(d.date).getTime() - startA) / MS_DAY) + 1;
+      mapA.set(rel, (mapA.get(rel) ?? 0) + d.total);
+    }
 
-    return allDates.map((date) => ({
-      date,
-      label: new Date(date).toLocaleDateString("it-IT", {
-        day: "2-digit",
-        month: "2-digit",
-      }),
-      [labelA]: mapA.get(date) ?? null,
-      [labelB]: mapB.get(date) ?? null,
+    // Per il periodo B, il giorno 1 è il suo proprio inizio — allineato a quello di A per indice
+    const datesB = [...statsB.dailyTotals].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+    const startBMs =
+      datesB.length > 0 ? new Date(datesB[0].date).getTime() : startA;
+    const mapB = new Map<number, number>();
+    for (const d of statsB.dailyTotals) {
+      const rel =
+        Math.round((new Date(d.date).getTime() - startBMs) / MS_DAY) + 1;
+      mapB.set(rel, (mapB.get(rel) ?? 0) + d.total);
+    }
+
+    const allDays = Array.from(new Set([...mapA.keys(), ...mapB.keys()])).sort(
+      (a, b) => a - b
+    );
+
+    return allDays.map((day) => ({
+      day,
+      [labelA]: mapA.get(day) ?? null,
+      [labelB]: mapB.get(day) ?? null,
     }));
-  }, [statsA, statsB, labelA, labelB]);
+  }, [statsA, statsB, labelA, labelB, fromA]);
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -273,11 +328,7 @@ function DailyLineChart({
         margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis
-          dataKey="label"
-          tick={{ fontSize: 10 }}
-          interval="preserveStartEnd"
-        />
+        <XAxis dataKey="day" tick={{ fontSize: 11 }} />
         <YAxis tickFormatter={(v) => `${v}€`} tick={{ fontSize: 11 }} />
         <RechartsTooltip
           formatter={(v) => (typeof v === "number" ? formatEur(v) : v)}
@@ -572,20 +623,55 @@ export function Spesometro({
         <Stack gap="xl">
           <Group grow align="stretch">
             <Paper p="md" withBorder>
-              <Text size="sm" c="dimmed" mb={4}>
-                {singleLabel}
-              </Text>
-              <Text
-                size="xl"
-                fw={700}
-                c={singleStats.grandTotal >= 0 ? "green" : "red"}
-              >
-                {formatEur(singleStats.grandTotal)}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {singleStats.categories.reduce((acc, c) => acc + c.count, 0)}{" "}
-                movimenti
-              </Text>
+              {(() => {
+                const entrate = singleStats.categories
+                  .filter((c) => c.total > 0)
+                  .reduce((acc, c) => acc + c.total, 0);
+                const uscite = singleStats.categories
+                  .filter((c) => c.total < 0)
+                  .reduce((acc, c) => acc + c.total, 0);
+                return (
+                  <>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      {singleLabel}
+                    </Text>
+                    <Text
+                      size="xl"
+                      fw={700}
+                      c={singleStats.grandTotal >= 0 ? "green" : "red"}
+                      mb={8}
+                    >
+                      {formatEur(singleStats.grandTotal)}
+                    </Text>
+                    <Divider mb={8} />
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="xs" c="dimmed">
+                          Entrate
+                        </Text>
+                        <Text size="sm" fw={600} c="green">
+                          {formatEur(entrate)}
+                        </Text>
+                      </Stack>
+                      <Stack gap={2} align="flex-end">
+                        <Text size="xs" c="dimmed">
+                          Uscite
+                        </Text>
+                        <Text size="sm" fw={600} c="red">
+                          {formatEur(uscite)}
+                        </Text>
+                      </Stack>
+                    </Group>
+                    <Text size="xs" c="dimmed" mt={6}>
+                      {singleStats.categories.reduce(
+                        (acc, c) => acc + c.count,
+                        0
+                      )}{" "}
+                      movimenti
+                    </Text>
+                  </>
+                );
+              })()}
             </Paper>
           </Group>
 
@@ -641,23 +727,52 @@ export function Spesometro({
             {[
               { label: labelA, s: stats.a },
               { label: labelB, s: stats.b },
-            ].map(({ label, s }) => (
-              <Paper key={label} p="md" withBorder>
-                <Text size="sm" c="dimmed" mb={4}>
-                  {label}
-                </Text>
-                <Text
-                  size="xl"
-                  fw={700}
-                  c={s.grandTotal >= 0 ? "green" : "red"}
-                >
-                  {formatEur(s.grandTotal)}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {s.categories.reduce((acc, c) => acc + c.count, 0)} movimenti
-                </Text>
-              </Paper>
-            ))}
+            ].map(({ label, s }) => {
+              const entrate = s.categories
+                .filter((c) => c.total > 0)
+                .reduce((acc, c) => acc + c.total, 0);
+              const uscite = s.categories
+                .filter((c) => c.total < 0)
+                .reduce((acc, c) => acc + c.total, 0);
+              return (
+                <Paper key={label} p="md" withBorder>
+                  <Text size="sm" c="dimmed" mb={4}>
+                    {label}
+                  </Text>
+                  <Text
+                    size="xl"
+                    fw={700}
+                    c={s.grandTotal >= 0 ? "green" : "red"}
+                    mb={8}
+                  >
+                    {formatEur(s.grandTotal)}
+                  </Text>
+                  <Divider mb={8} />
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="xs" c="dimmed">
+                        Entrate
+                      </Text>
+                      <Text size="sm" fw={600} c="green">
+                        {formatEur(entrate)}
+                      </Text>
+                    </Stack>
+                    <Stack gap={2} align="flex-end">
+                      <Text size="xs" c="dimmed">
+                        Uscite
+                      </Text>
+                      <Text size="sm" fw={600} c="red">
+                        {formatEur(uscite)}
+                      </Text>
+                    </Stack>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={6}>
+                    {s.categories.reduce((acc, c) => acc + c.count, 0)}{" "}
+                    movimenti
+                  </Text>
+                </Paper>
+              );
+            })}
           </Group>
 
           <Paper p="md" withBorder>
@@ -693,6 +808,7 @@ export function Spesometro({
               statsB={stats.b}
               labelA={labelA}
               labelB={labelB}
+              fromA={periods.find((p) => p.id === periodAId)?.from ?? ""}
             />
           </Paper>
         </Stack>
