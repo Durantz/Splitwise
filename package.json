@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@mantine/core": "^8.0.0",
-    "@mantine/dates": "^8.0.0",
+    "@mantine/dates": "^8.3.16",
     "@mantine/form": "^8.0.0",
     "@mantine/hooks": "^8.0.0",
     "@mantine/notifications": "^8.0.0",
@@ -23,7 +23,9 @@
     "nextjs-toploader": "^3.9.17",
     "react": "^19",
     "react-dom": "^19",
-    "web-push": "^3.6.7"
+    "recharts": "^3.8.0",
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20",

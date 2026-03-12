@@ -20,6 +20,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import NotificationToggle from "./NotificationToggle";
+import { IconChartBar } from "@tabler/icons-react";
 
 interface AppNavProps {
   user: {
@@ -34,8 +35,8 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
   { href: "/expenses", label: "Spese", icon: IconReceipt },
   { href: "/groups", label: "Gruppi", icon: IconUsers },
+  { href: "/budget", label: "Budget", icon: IconChartBar }, // <- aggiungi
 ];
-
 export default function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
   const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;

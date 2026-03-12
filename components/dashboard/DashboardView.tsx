@@ -4,7 +4,6 @@ import {
   Stack,
   Title,
   Text,
-  SimpleGrid,
   Card,
   Group,
   ThemeIcon,
@@ -63,8 +62,7 @@ export default function DashboardView({
           Totale aperto
         </Text>
 
-        {/* Ti devono + Devi dare: 2 colonne */}
-        <SimpleGrid cols={2} spacing="sm">
+        <Group grow align="stretch">
           <Card p="md">
             <ThemeIcon variant="light" color="teal" size="sm" mb="xs">
               <IconTrendingUp size={14} />
@@ -88,9 +86,8 @@ export default function DashboardView({
               Devi dare
             </Text>
           </Card>
-        </SimpleGrid>
+        </Group>
 
-        {/* Saldo netto: full width */}
         <Card p="md" bg={netPositive ? "dark.8" : undefined}>
           <Group justify="space-between" align="center">
             <Group gap="xs">
@@ -129,8 +126,7 @@ export default function DashboardView({
           {data.monthLabel}
         </Text>
 
-        {/* Ti devono + Devi dare: 2 colonne */}
-        <SimpleGrid cols={2} spacing="sm">
+        <Group grow align="stretch">
           <Card p="md">
             <ThemeIcon variant="light" color="teal" size="sm" mb="xs">
               <IconTrendingUp size={14} />
@@ -154,9 +150,8 @@ export default function DashboardView({
               Devi dare
             </Text>
           </Card>
-        </SimpleGrid>
+        </Group>
 
-        {/* Spese + Speso: full width orizzontale */}
         <Card p="md">
           <Group justify="space-between" align="center">
             <Group gap="xs">
