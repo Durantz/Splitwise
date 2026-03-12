@@ -17,6 +17,7 @@ import {
   ActionIcon,
   Modal,
   SegmentedControl,
+  Accordion,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -175,7 +176,11 @@ function CategoryCompareTable({
           {rows.map(({ category, totalA, totalB }) => (
             <tr key={category}>
               <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                <Badge color={getCategoryColor(category)} variant="light">
+                <Badge
+                  color={getCategoryColor(category)}
+                  variant="light"
+                  style={{ whiteSpace: "nowrap", maxWidth: "none" }}
+                >
                   {getCategoryLabel(category)}
                 </Badge>
               </td>
@@ -277,36 +282,35 @@ function DailyLineChart({
   statsB,
   labelA,
   labelB,
-  fromA,
 }: {
   statsA: PeriodStats;
   statsB: PeriodStats;
   labelA: string;
   labelB: string;
-  fromA: string; // data inizio periodo A — usata come "giorno 1" per entrambi
 }) {
   const data = useMemo(() => {
-    const startA = new Date(fromA).getTime();
+    const sortedA = [...statsA.dailyTotals].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+    const sortedB = [...statsB.dailyTotals].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    // Giorno 1 = primo giorno in cui ci sono transazioni per quel periodo
+    const startA = sortedA.length > 0 ? new Date(sortedA[0].date).getTime() : 0;
+    const startB = sortedB.length > 0 ? new Date(sortedB[0].date).getTime() : 0;
     const MS_DAY = 86400000;
 
-    // Entrambi i periodi si allineano al giorno 1 = primo giorno del periodo A
     const mapA = new Map<number, number>();
-    for (const d of statsA.dailyTotals) {
+    for (const d of sortedA) {
       const rel =
         Math.round((new Date(d.date).getTime() - startA) / MS_DAY) + 1;
       mapA.set(rel, (mapA.get(rel) ?? 0) + d.total);
     }
-
-    // Per il periodo B, il giorno 1 è il suo proprio inizio — allineato a quello di A per indice
-    const datesB = [...statsB.dailyTotals].sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-    const startBMs =
-      datesB.length > 0 ? new Date(datesB[0].date).getTime() : startA;
     const mapB = new Map<number, number>();
-    for (const d of statsB.dailyTotals) {
+    for (const d of sortedB) {
       const rel =
-        Math.round((new Date(d.date).getTime() - startBMs) / MS_DAY) + 1;
+        Math.round((new Date(d.date).getTime() - startB) / MS_DAY) + 1;
       mapB.set(rel, (mapB.get(rel) ?? 0) + d.total);
     }
 
@@ -319,7 +323,7 @@ function DailyLineChart({
       [labelA]: mapA.get(day) ?? null,
       [labelB]: mapB.get(day) ?? null,
     }));
-  }, [statsA, statsB, labelA, labelB, fromA]);
+  }, [statsA, statsB, labelA, labelB]);
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -370,13 +374,9 @@ export function Spesometro({
 }) {
   // Il server restituisce dal più recente al più vecchio — invertiamo per A=vecchio, B=recente
   const [periods, setPeriods] = useState(() => [...initialPeriods].reverse());
-  const [mode, setMode] = useState<"single" | "compare">("compare");
-  const [periodAId, setPeriodAId] = useState<string | null>(
-    initialPeriods[1]?.id ?? initialPeriods[0]?.id ?? null
-  );
-  const [periodBId, setPeriodBId] = useState<string | null>(
-    initialPeriods[0]?.id ?? null
-  );
+  const [mode, setMode] = useState<"single" | "compare">("single");
+  const [periodAId, setPeriodAId] = useState<string | null>(null);
+  const [periodBId, setPeriodBId] = useState<string | null>(null);
   const [stats, setStats] = useState<{ a: PeriodStats; b: PeriodStats } | null>(
     null
   );
@@ -587,29 +587,40 @@ export function Spesometro({
             </Group>
           )}
 
-          <Divider label="Periodi importati" labelPosition="left" />
-
-          <Stack gap={6}>
-            {periods.map((p) => (
-              <Group key={p.id} justify="space-between" wrap="nowrap">
-                <Text size="sm">{p.label}</Text>
-                <Group gap="xs" wrap="nowrap">
-                  <Text size="xs" c="dimmed">
-                    {new Date(p.from).toLocaleDateString("it-IT")} →{" "}
-                    {new Date(p.to).toLocaleDateString("it-IT")}
-                  </Text>
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={() => handleDeleteClick(p)}
-                  >
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Group>
-              </Group>
-            ))}
-          </Stack>
+          <Accordion variant="contained" radius="sm">
+            <Accordion.Item value="periodi">
+              <Accordion.Control>
+                <Text size="sm" fw={500}>
+                  Periodi importati ({periods.length})
+                </Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                  <Stack gap={4} p={4}>
+                    {periods.map((p) => (
+                      <Group key={p.id} justify="space-between" wrap="nowrap">
+                        <Stack gap={0}>
+                          <Text size="sm">{p.label}</Text>
+                          <Text size="xs" c="dimmed">
+                            {new Date(p.from).toLocaleDateString("it-IT")} →{" "}
+                            {new Date(p.to).toLocaleDateString("it-IT")}
+                          </Text>
+                        </Stack>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="sm"
+                          onClick={() => handleDeleteClick(p)}
+                        >
+                          <IconTrash size={14} />
+                        </ActionIcon>
+                      </Group>
+                    ))}
+                  </Stack>
+                </div>
+              </Accordion.Panel>
+            </Accordion.Item>
+          </Accordion>
         </Stack>
       </Paper>
 
@@ -808,7 +819,6 @@ export function Spesometro({
               statsB={stats.b}
               labelA={labelA}
               labelB={labelB}
-              fromA={periods.find((p) => p.id === periodAId)?.from ?? ""}
             />
           </Paper>
         </Stack>
