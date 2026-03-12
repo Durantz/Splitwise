@@ -221,30 +221,6 @@ function DailyLineChart({
   );
 }
 
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-        <YAxis tickFormatter={(v) => `${v}€`} tick={{ fontSize: 11 }} />
-        <RechartsTooltip
-          formatter={(v) => (typeof v === "number" ? formatEur(v) : v)}
-          contentStyle={{
-            backgroundColor: "var(--mantine-color-dark-7)",
-            border: "1px solid var(--mantine-color-dark-4)",
-            borderRadius: "var(--mantine-radius-sm)",
-            color: "var(--mantine-color-white)",
-          }}
-          labelStyle={{ color: "var(--mantine-color-dimmed)" }}
-        />
-        <Legend />
-        <Line type="monotone" dataKey={labelA} stroke="#339af0" dot={false} strokeWidth={2} />
-        <Line type="monotone" dataKey={labelB} stroke="#94d82d" dot={false} strokeWidth={2} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
 // ------------------------------------------------------------------
 // Componente principale
 // ------------------------------------------------------------------
