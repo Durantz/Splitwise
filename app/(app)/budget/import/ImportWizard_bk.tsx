@@ -67,9 +67,9 @@ function StepUpload({
   return (
     <Stack>
       <Text c="dimmed">
-        Carica il tuo estratto conto in formato <strong>.csv</strong> (BNL) o{" "}
-        <strong>.xlsx</strong> (Fineco). Il file viene letto direttamente nel
-        browser — nessun dato sensibile viene inviato al server.
+        Carica il tuo estratto conto BNL in formato <strong>.csv</strong>. Il
+        file viene letto direttamente nel browser — nessun dato sensibile viene
+        inviato al server.
       </Text>
       {error && (
         <Alert color="red" icon={<IconAlertCircle size={16} />}>
@@ -78,7 +78,7 @@ function StepUpload({
       )}
       <FileButton
         onChange={(file) => file && parseFile(file, existingMappings)}
-        accept=".csv,.xlsx"
+        accept=".csv"
       >
         {(props) => (
           <Button

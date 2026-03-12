@@ -11,6 +11,8 @@ import {
   Paper,
   ThemeIcon,
   Alert,
+  Group,
+  Anchor,
 } from "@mantine/core";
 import { IconBrandGoogle, IconAlertCircle } from "@tabler/icons-react";
 import Image from "next/image";
@@ -65,9 +67,23 @@ export default function LoginPage() {
           </Stack>
         </Paper>
 
-        <Text size="xs" c="dimmed">
-          Nessun dato condiviso con terze parti.
-        </Text>
+        <Group gap="xs" justify="center">
+          <Text size="xs" c="dimmed">
+            Nessun dato condiviso con terze parti.
+          </Text>
+          <Text size="xs" c="dimmed">
+            ·
+          </Text>
+          <Anchor
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            size="xs"
+            c="dimmed"
+          >
+            Privacy Policy Google
+          </Anchor>
+        </Group>
       </Stack>
     </Center>
   );
