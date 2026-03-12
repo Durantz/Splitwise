@@ -6,6 +6,8 @@ import { requireSession } from "@/lib/session";
 import { Transaction } from "@/lib/models/Transaction";
 import { Period } from "@/lib/models/Period";
 import { TransactionCategory } from "@/lib/models/TransactionCategory";
+import { CategoryRule } from "@/lib/models/CategoryRule";
+import { CategoryRuleClient } from "@/hooks/useXlsxParser";
 import mongoose from "mongoose";
 
 // ------------------------------------------------------------------
@@ -148,4 +150,22 @@ export async function getMappings(): Promise<Record<string, string>> {
   return Object.fromEntries(
     mappings.map((m) => [m.normalizedDescription, m.category])
   );
+}
+
+export async function getCategoryRulesForClient(): Promise<
+  CategoryRuleClient[]
+> {
+  const session = await requireSession();
+  await connectDB();
+
+  const rules = await CategoryRule.find({ userId: session.user.id })
+    .sort({ priority: 1 })
+    .lean();
+
+  return rules.map((r) => ({
+    pattern: r.pattern,
+    category: r.category,
+    priority: r.priority,
+    overridesExact: r.overridesExact,
+  }));
 }

@@ -5,7 +5,7 @@ import {
   Container,
   Title,
   Text,
-  Stepper,
+  Checkbox,
   Button,
   Group,
   Stack,
@@ -24,7 +24,11 @@ import {
 import { DatePickerInput, DatesRangeValue } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconUpload } from "@tabler/icons-react";
-import { useXlsxParser, ParsedRow } from "@/hooks/useXlsxParser";
+import {
+  useXlsxParser,
+  ParsedRow,
+  CategoryRuleClient,
+} from "@/hooks/useXlsxParser";
 import { CATEGORIES, getCategoryColor } from "@/lib/categories";
 import { importTransactions, ImportPayload } from "./server";
 
@@ -34,15 +38,20 @@ import { importTransactions, ImportPayload } from "./server";
 function StepUpload({
   onParsed,
   existingMappings,
+  rules,
 }: {
   onParsed: (rows: ParsedRow[]) => void;
   existingMappings: Record<string, string>;
+  rules: CategoryRuleClient[];
 }) {
   const { status, rows, error, parseFile, reset } = useXlsxParser();
 
   if (status === "done") {
     const autoCount = rows.filter((r) => r.autoMatched).length;
-    const newCount = rows.filter((r) => !r.autoMatched).length;
+    const ruleCount = rows.filter((r) => r.matchedByRule).length;
+    const newCount = rows.filter(
+      (r) => !r.autoMatched && !r.matchedByRule
+    ).length;
     return (
       <Stack>
         <Alert
@@ -51,8 +60,13 @@ function StepUpload({
           title="File caricato"
         >
           {rows.length} movimenti letti —{" "}
-          <strong>{autoCount} già riconosciuti</strong>,{" "}
-          <strong>{newCount} da categorizzare</strong>
+          <strong>{autoCount} già riconosciuti</strong>
+          {ruleCount > 0 && (
+            <>
+              , <strong>{ruleCount} pre-categorizzati da regola</strong>
+            </>
+          )}
+          , <strong>{newCount} da categorizzare</strong>
         </Alert>
         <Group>
           <Button onClick={() => onParsed(rows)}>Continua</Button>
@@ -77,7 +91,7 @@ function StepUpload({
         </Alert>
       )}
       <FileButton
-        onChange={(file) => file && parseFile(file, existingMappings)}
+        onChange={(file) => file && parseFile(file, existingMappings, rules)}
         accept=".csv,.xlsx"
       >
         {(props) => (
@@ -101,10 +115,9 @@ function StepUpload({
   );
 }
 
+const SKIP_VALUE = "__skip__";
 // ------------------------------------------------------------------
 // Step 1 – Categorizzazione
-// Raggruppa per descrizione normalizzata così l'utente categorizza
-// una volta sola le voci con descrizione identica
 // ------------------------------------------------------------------
 function StepCategorize({
   rows,
@@ -124,7 +137,12 @@ function StepCategorize({
   const unknownGroups = useMemo(() => {
     const map = new Map<
       string,
-      { description: string; count: number; total: number }
+      {
+        description: string;
+        count: number;
+        total: number;
+        matchedByRule: boolean;
+      }
     >();
     for (const row of rows) {
       if (row.autoMatched) continue;
@@ -134,16 +152,18 @@ function StepCategorize({
         existing.total += row.amount;
       } else {
         map.set(row.normalizedDescription, {
-          description: row.description,
+          description: row.cleanDescription,
           count: 1,
           total: row.amount,
+          matchedByRule: row.matchedByRule,
         });
       }
     }
     return Array.from(map.entries()).map(([key, v]) => ({ key, ...v }));
   }, [rows]);
 
-  const allAssigned = unknownGroups.every((g) => assignments[g.key]);
+  const allHandled = unknownGroups.every((g) => assignments[g.key]);
+  const pendingCount = unknownGroups.filter((g) => !assignments[g.key]).length;
 
   if (unknownGroups.length === 0) {
     return (
@@ -162,53 +182,101 @@ function StepCategorize({
     <Stack>
       <Text c="dimmed">
         Assegna una categoria a ciascuna voce nuova. Le descrizioni uguali sono
-        raggruppate.
+        raggruppate. Usa "Escludi" per ignorare una voce senza salvarla.
       </Text>
       <Stack gap="xs">
-        {unknownGroups.map((g) => (
-          <Paper key={g.key} p="sm" withBorder>
-            <Group justify="space-between" wrap="nowrap" mb={6}>
-              <Text
-                size="sm"
-                fw={500}
-                style={{ flex: 1, minWidth: 0 }}
-                lineClamp={2}
-              >
-                {g.description}
-              </Text>
-              <Group gap="xs" wrap="nowrap" ml="xs">
-                <Badge variant="outline" color="gray" size="sm">
-                  {g.count}×
-                </Badge>
-                <Text
-                  size="sm"
-                  fw={600}
-                  c={g.total >= 0 ? "green" : "red"}
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  <NumberFormatter
-                    value={g.total}
-                    decimalScale={2}
-                    prefix={g.total >= 0 ? "+" : ""}
-                    suffix=" €"
-                    thousandSeparator="."
-                    decimalSeparator=","
+        {unknownGroups.map((g) => {
+          const isSkipped = assignments[g.key] === SKIP_VALUE;
+          return (
+            <Paper key={g.key} p="sm" withBorder opacity={isSkipped ? 0.5 : 1}>
+              <Stack gap={6}>
+                <Group justify="space-between" wrap="nowrap">
+                  <Group
+                    gap="xs"
+                    wrap="nowrap"
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    <Text
+                      size="sm"
+                      fw={500}
+                      style={{
+                        minWidth: 0,
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                      }}
+                    >
+                      {g.description}
+                    </Text>
+                    {g.matchedByRule && (
+                      <Badge
+                        size="xs"
+                        color="blue"
+                        variant="light"
+                        style={{ flexShrink: 0 }}
+                      >
+                        Regola
+                      </Badge>
+                    )}
+                  </Group>
+                  <Group
+                    gap="xs"
+                    wrap="nowrap"
+                    ml="xs"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <Badge variant="outline" color="gray" size="sm">
+                      {g.count}×
+                    </Badge>
+                    <Text
+                      size="sm"
+                      fw={600}
+                      c={g.total >= 0 ? "green" : "red"}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      <NumberFormatter
+                        value={g.total}
+                        decimalScale={2}
+                        prefix={g.total >= 0 ? "+" : ""}
+                        suffix=" €"
+                        thousandSeparator="."
+                        decimalSeparator=","
+                      />
+                    </Text>
+                  </Group>
+                </Group>
+                <Group gap="sm" wrap="nowrap">
+                  <Select
+                    placeholder="Seleziona categoria…"
+                    data={CATEGORIES.map((c) => ({
+                      value: c.value,
+                      label: c.label,
+                    }))}
+                    value={isSkipped ? null : assignments[g.key] ?? null}
+                    onChange={(val) =>
+                      val &&
+                      setAssignments((prev) => ({ ...prev, [g.key]: val }))
+                    }
+                    size="sm"
+                    clearable={false}
+                    disabled={isSkipped}
+                    style={{ flex: 1 }}
                   />
-                </Text>
-              </Group>
-            </Group>
-            <Select
-              placeholder="Seleziona categoria…"
-              data={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
-              value={assignments[g.key] ?? null}
-              onChange={(val) =>
-                val && setAssignments((prev) => ({ ...prev, [g.key]: val }))
-              }
-              size="sm"
-              clearable={false}
-            />
-          </Paper>
-        ))}
+                  <Checkbox
+                    label="Escludi"
+                    size="sm"
+                    checked={isSkipped}
+                    onChange={(e) =>
+                      setAssignments((prev) => ({
+                        ...prev,
+                        [g.key]: e.target.checked ? SKIP_VALUE : "",
+                      }))
+                    }
+                  />
+                </Group>
+              </Stack>
+            </Paper>
+          );
+        })}
       </Stack>
       <Group>
         <Button
@@ -221,14 +289,14 @@ function StepCategorize({
               }))
             )
           }
-          disabled={!allAssigned}
+          disabled={!allHandled}
         >
           Conferma categorie
         </Button>
-        {!allAssigned && (
+        {!allHandled && (
           <Text size="sm" c="dimmed">
-            {unknownGroups.filter((g) => !assignments[g.key]).length} voci
-            ancora senza categoria
+            {pendingCount} {pendingCount === 1 ? "voce ancora" : "voci ancora"}{" "}
+            senza categoria
           </Text>
         )}
       </Group>
@@ -369,8 +437,10 @@ function StepSummary({
 // ------------------------------------------------------------------
 export function ImportWizard({
   existingMappings,
+  rules,
 }: {
   existingMappings: Record<string, string>;
+  rules: CategoryRuleClient[];
 }) {
   const [active, setActive] = useState(0);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
@@ -385,11 +455,13 @@ export function ImportWizard({
     for (const row of categorizedRows) {
       if (
         !row.autoMatched &&
+        !row.matchedByRule &&
         row.category &&
+        row.category !== SKIP_VALUE &&
         !newMappingsMap.has(row.normalizedDescription)
       ) {
         newMappingsMap.set(row.normalizedDescription, {
-          description: row.description,
+          description: row.cleanDescription,
           normalizedDescription: row.normalizedDescription,
           category: row.category,
         });
@@ -402,7 +474,7 @@ export function ImportWizard({
       periodTo: to.toISOString(),
       newMappings: Array.from(newMappingsMap.values()),
       transactions: categorizedRows
-        .filter((r) => r.category)
+        .filter((r) => r.category && r.category !== SKIP_VALUE)
         .map((r) => ({
           date: r.date.toISOString(),
           amount: r.amount,
@@ -435,7 +507,6 @@ export function ImportWizard({
         Importa estratto conto
       </Title>
 
-      {/* Step indicator compatto — funziona su qualsiasi larghezza */}
       {active < 3 && (
         <Group justify="center" mb="xl" gap="xs">
           {["Carica file", "Categorie", "Riepilogo"].map((label, i) => (
@@ -498,6 +569,7 @@ export function ImportWizard({
                 setActive(1);
               }}
               existingMappings={existingMappings}
+              rules={rules}
             />
           )}
           {active === 1 && (

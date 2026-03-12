@@ -487,9 +487,19 @@ export function Spesometro({
         <Button
           component={Link}
           href="/budget/import"
+          variant="light"
           leftSection={<IconPlus size={16} />}
+          size="sm"
         >
-          Importa estratto conto
+          Importa
+        </Button>
+        <Button
+          component={Link}
+          href="/budget/edit-categories"
+          variant="subtle"
+          size="sm"
+        >
+          Categorie
         </Button>
       </Container>
     );

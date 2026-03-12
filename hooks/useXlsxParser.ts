@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 export interface RawRow {
   date: Date;
   description: string;
+  cleanDescription: string; // descrizione senza metadati variabili, usata in UI e nel DB
   amount: number;
 }
 
@@ -12,20 +13,105 @@ export interface ParsedRow extends RawRow {
   normalizedDescription: string;
   category: string | null;
   autoMatched: boolean;
+  matchedByRule: boolean; // true = categoria pre-selezionata da regola wildcard
 }
 
 export type ParseStatus = "idle" | "parsing" | "done" | "error";
+
+export interface CategoryRuleClient {
+  pattern: string;
+  category: string;
+  priority: number;
+  overridesExact: boolean;
+}
 
 interface UseParserReturn {
   status: ParseStatus;
   rows: ParsedRow[];
   error: string | null;
-  parseFile: (file: File, existingMappings: Record<string, string>) => void;
+  parseFile: (
+    file: File,
+    existingMappings: Record<string, string>,
+    rules?: CategoryRuleClient[]
+  ) => void;
   reset: () => void;
 }
 
+import { patternToRegexString } from "@/lib/CategoryRuleUtils";
+
+/** Converte pattern wildcard in RegExp */
+function patternToRegex(pattern: string): RegExp {
+  return new RegExp(`^${patternToRegexString(pattern)}$`, "i");
+}
+
+/** Trova la prima regola che matcha la descrizione normalizzata */
+function matchRule(
+  normalizedDescription: string,
+  rules: CategoryRuleClient[]
+): CategoryRuleClient | null {
+  const sorted = [...rules].sort((a, b) => a.priority - b.priority);
+  for (const rule of sorted) {
+    if (patternToRegex(rule.pattern).test(normalizedDescription)) {
+      return rule;
+    }
+  }
+  return null;
+}
+
 function normalize(s: string): string {
-  return s.toLowerCase().trim().replace(/\s+/g, " ");
+  return (
+    s
+      .toLowerCase()
+      .trim()
+
+      // ── Metadati Fineco espliciti ─────────────────────────────────────────
+      .replace(
+        /data\s+operazione\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/gi,
+        ""
+      )
+      .replace(/numero\s+operazione\s+\d+/gi, "")
+      .replace(/numero\s+lista\s+\d+/gi, "")
+      .replace(/codice\s+operazione\s+[\w\d]+/gi, "")
+
+      // ── IBAN (es. LU08H000..., IT60X054...) ──────────────────────────────
+      .replace(/\b[a-z]{2}\d{2}[a-z0-9]{10,}\b/gi, "")
+
+      // ── Codici mandato SDD (es. "mandato1", "mand sato1", "4fwj224qwzwyw") ─
+      .replace(/\bmand(?:ato)?\s*\S+/gi, "")
+
+      // ── "da XXXX" riferimento IBAN/conto dopo parole chiave ───────────────
+      .replace(/\bda\s+[a-z]{2}\d{2}\S*/gi, "")
+
+      // ── Amazon: codice ordine dopo * (es. amzn mktp it*ys79x00w5) ────────
+      .replace(/\*[a-z0-9]{6,}/gi, "")
+
+      // ── Numero rata isolato (es. "rata 11", "n rata 11") ─────────────────
+      .replace(/\bn\.?\s*rata\s+\d+/gi, "rata")
+      .replace(/\brata\s+\d+/gi, "rata")
+
+      // ── Scadenza con data (es. "scadenza 01/2026") ────────────────────────
+      .replace(/\bscadenza\s+[\d\/\.\-]+/gi, "scadenza")
+
+      // ── Mese/anno isolati dopo parole chiave (es. "emolumenti 01 2026") ───
+      .replace(/\b(emolumenti|stipendio|cedolino)\s+\d{1,2}\s+\d{4}\b/gi, "$1")
+
+      // ── info-cli: prefisso Fineco ─────────────────────────────────────────
+      .replace(/^info-cli:\s*/gi, "")
+
+      // ── Sequenze alfanumeriche caotiche 8+ char (codici interni) ─────────
+      // Matcha solo se ha sia lettere che cifre mescolate (non parole normali)
+      .replace(/\b(?=[a-z]+\d|\d+[a-z])[a-z0-9]{8,}\b/gi, "")
+
+      // ── Date isolate e numeri lunghi ──────────────────────────────────────
+      .replace(/\b\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}\b/g, "")
+      .replace(/\b\d{6,}\b/g, "")
+
+      // ── Pulizia finale ────────────────────────────────────────────────────
+      .replace(/[\s\-\/]+$/, "")
+      .replace(/^[\s\-\/]+/, "")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+  );
 }
 
 // ── BNL CSV ────────────────────────────────────────────────────────────────
@@ -102,13 +188,12 @@ function parseBnlCsv(text: string): RawRow[] | string {
         .replace(/[^0-9.\-+]/g, "")
     );
     if (!amount) continue;
-    rows.push({ date, description, amount });
+    rows.push({ date, description, cleanDescription: normalize(desc), amount });
   }
   return rows.length ? rows : "Nessuna riga BNL riconosciuta";
 }
 
 // ── FINECO XLSX ─────────────────────────────────────────────────────────────
-// Date come seriale Excel, Entrate/Uscite su colonne separate
 
 function excelSerialToDate(serial: number): Date {
   const utcDays = Math.floor(serial) - 25569;
@@ -123,14 +208,12 @@ function colLetterToIdx(ref: string): number {
   return n - 1;
 }
 
-// Legge un file ZIP nel browser senza librerie esterne
 async function readZipFile(
   buffer: ArrayBuffer
 ): Promise<Map<string, Uint8Array>> {
   const view = new DataView(buffer);
   const files = new Map<string, Uint8Array>();
 
-  // Cerca End of Central Directory signature (0x06054b50) dalla fine
   let eocdOffset = -1;
   for (let i = buffer.byteLength - 22; i >= 0; i--) {
     if (view.getUint32(i, true) === 0x06054b50) {
@@ -161,16 +244,13 @@ async function readZipFile(
     );
     pos += 46 + fileNameLen + extraLen + commentLen;
 
-    // Leggi local file header per trovare offset dati
     const localExtraLen = view.getUint16(localOffset + 28, true);
     const dataOffset = localOffset + 30 + fileNameLen + localExtraLen;
     const compData = new Uint8Array(buffer, dataOffset, compSize);
 
     if (compMethod === 0) {
-      // Stored
       files.set(fileName, compData.slice());
     } else if (compMethod === 8) {
-      // Deflate — usa DecompressionStream
       const ds = new DecompressionStream("deflate-raw");
       const writer = ds.writable.getWriter();
       const reader = ds.readable.getReader();
@@ -206,7 +286,6 @@ async function parseFinecoXlsx(
 
   const decoder = new TextDecoder("utf-8");
 
-  // Shared strings
   let sharedStrings: string[] = [];
   const ssData = files.get("xl/sharedStrings.xml");
   if (ssData) {
@@ -232,7 +311,6 @@ async function parseFinecoXlsx(
 
   const allRows = Array.from(doc.querySelectorAll("row"));
 
-  // Trova header row con "data_operazione"
   let headerRowIdx = -1;
   let headers: string[] = [];
   for (let i = 0; i < Math.min(allRows.length, 20); i++) {
@@ -257,7 +335,6 @@ async function parseFinecoXlsx(
 
   const rows: RawRow[] = [];
   for (let i = headerRowIdx + 1; i < allRows.length; i++) {
-    // Mappa ref colonna → valore (gestisce celle sparse)
     const rowArr: string[] = [];
     for (const c of Array.from(allRows[i].querySelectorAll("c"))) {
       const ref = c.getAttribute("r") ?? "";
@@ -281,7 +358,11 @@ async function parseFinecoXlsx(
     const description = descExt ? `${desc} - ${descExt}` : desc;
     if (!description) continue;
 
-    rows.push({ date, description, amount });
+    // Fineco: cleanDescription usa descrizione_completa normalizzata (toglie i metadati
+    // variabili ma mantiene il dettaglio utile tipo nome negozio, causale, ecc.)
+    // Se descrizione_completa non c'è, fallback su descrizione base
+    const cleanDescription = normalize(descExt || desc);
+    rows.push({ date, description, cleanDescription, amount });
   }
 
   return rows.length ? rows : "Nessuna riga Fineco riconosciuta";
@@ -295,20 +376,45 @@ export function useXlsxParser(): UseParserReturn {
   const [error, setError] = useState<string | null>(null);
 
   const parseFile = useCallback(
-    (file: File, existingMappings: Record<string, string>) => {
+    (
+      file: File,
+      existingMappings: Record<string, string>,
+      rules: CategoryRuleClient[] = []
+    ) => {
       setStatus("parsing");
       setError(null);
 
       const finish = (rawRows: RawRow[]) => {
         const parsed: ParsedRow[] = rawRows.map((r) => {
-          const normalizedDescription = normalize(r.description);
-          const existingCategory =
-            existingMappings[normalizedDescription] ?? null;
+          const normalizedDescription = r.cleanDescription;
+
+          // 1. Cerca regola che matcha
+          const matchedRule = matchRule(normalizedDescription, rules);
+
+          // 2. Cerca mapping esatto
+          const exactCategory = existingMappings[normalizedDescription] ?? null;
+
+          let category: string | null = null;
+          let autoMatched = false;
+          let matchedByRule = false;
+
+          if (exactCategory && (!matchedRule || !matchedRule.overridesExact)) {
+            // Mapping esatto vince (a meno che la regola non abbia overridesExact)
+            category = exactCategory;
+            autoMatched = true;
+          } else if (matchedRule) {
+            // Regola matcha: pre-seleziona ma rimane visibile per conferma
+            category = matchedRule.category;
+            autoMatched = false;
+            matchedByRule = true;
+          }
+
           return {
             ...r,
             normalizedDescription,
-            category: existingCategory,
-            autoMatched: existingCategory !== null,
+            category,
+            autoMatched,
+            matchedByRule,
           };
         });
         setRows(parsed);
