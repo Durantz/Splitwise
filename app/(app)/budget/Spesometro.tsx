@@ -493,14 +493,6 @@ export function Spesometro({
         >
           Importa
         </Button>
-        <Button
-          component={Link}
-          href="/budget/edit-categories"
-          variant="subtle"
-          size="sm"
-        >
-          Categorie
-        </Button>
       </Container>
     );
   }
@@ -553,6 +545,14 @@ export function Spesometro({
             size="sm"
           >
             Importa
+          </Button>
+          <Button
+            component={Link}
+            href="/budget/edit-categories"
+            variant="subtle"
+            size="sm"
+          >
+            Categorie
           </Button>
         </Group>
       </Group>
