@@ -17,6 +17,7 @@
     "@tabler/icons-react": "^3.11.0",
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.11",
+    "jspdf": "^4.2.0",
     "mongoose": "^8.5.1",
     "next": "latest",
     "next-auth": "^4.24.7",

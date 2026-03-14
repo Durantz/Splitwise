@@ -16,11 +16,13 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconReceipt,
+  IconDownload,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { CATEGORY_META, PAYMENT_METHOD_META } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { SettlementHistoryEntry } from "@/app/(app)/settlements/server";
+import { generateSettlementPdf } from "@/lib/generateSettlementPdf";
 
 interface Props {
   entry: SettlementHistoryEntry;
@@ -34,12 +36,22 @@ export default function SettlementHistoryCard({
   currency,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const iAmFrom = entry.from.id === currentUserId;
   const paymentMeta = PAYMENT_METHOD_META[entry.paymentMethod];
 
   // ID da mostrare: paymentId inserito dall'utente oppure le ultime 6 cifre dell'_id
   const displayId = entry.paymentId ?? `#${entry.id.slice(-6).toUpperCase()}`;
+
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true);
+    try {
+      await generateSettlementPdf(entry, currency);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   return (
     <Card p="md" radius="md" withBorder>
@@ -86,6 +98,16 @@ export default function SettlementHistoryCard({
             <Text size="sm" fw={700} ff="monospace" c="teal">
               {formatCurrency(entry.amount, currency)}
             </Text>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              loading={pdfLoading}
+              onClick={handleDownloadPdf}
+              title="Scarica ricevuta PDF"
+            >
+              <IconDownload size={14} />
+            </ActionIcon>
             {entry.settledExpenses.length > 0 && (
               <ActionIcon
                 size="sm"

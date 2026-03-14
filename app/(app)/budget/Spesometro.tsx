@@ -52,6 +52,7 @@ import {
   getCategoryColor,
   getCategoryLabel,
 } from "@/lib/categories";
+import { DailyHeatmap } from "./DailyHeatmap";
 
 function formatEur(value: number) {
   return new Intl.NumberFormat("it-IT", {
@@ -763,11 +764,10 @@ export function Spesometro({
             <Text fw={600} mb="md">
               Distribuzione giornaliera
             </Text>
-            <DailyLineChart
-              statsA={singleStats}
-              statsB={singleStats}
-              labelA={singleLabel}
-              labelB=""
+            <DailyHeatmap
+              dailyTotals={singleStats.dailyTotals}
+              periodFrom={periods.find((p) => p.id === periodAId)?.from ?? ""}
+              periodTo={periods.find((p) => p.id === periodAId)?.to ?? ""}
             />
           </Paper>
 
