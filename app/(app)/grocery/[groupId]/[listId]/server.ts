@@ -171,7 +171,7 @@ export async function addShoppingItem(
     { upsert: true }
   );
 
-  revalidatePath(`/spesa/${groupId}/${listId}`);
+  revalidatePath(`/grocery/${groupId}/${listId}`);
 
   return {
     success: true,
@@ -234,7 +234,7 @@ export async function toggleShoppingItem(
     );
   }
 
-  revalidatePath(`/spesa/${groupId}/${listId}`);
+  revalidatePath(`/grocery/${groupId}/${listId}`);
 }
 
 export async function updateShoppingItem(
@@ -266,7 +266,7 @@ export async function updateShoppingItem(
     }
   );
 
-  revalidatePath(`/spesa/${groupId}/${listId}`);
+  revalidatePath(`/grocery/${groupId}/${listId}`);
 }
 
 export async function deleteShoppingItem(
@@ -289,5 +289,5 @@ export async function deleteShoppingItem(
     listId: new mongoose.Types.ObjectId(listId),
   });
 
-  revalidatePath(`/spesa/${groupId}/${listId}`);
+  revalidatePath(`/grocery/${groupId}/${listId}`);
 }

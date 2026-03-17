@@ -82,7 +82,7 @@ export async function createShoppingGroup(name: string): Promise<string> {
     memberIds: [session.user.id],
   });
 
-  revalidatePath("/spesa");
+  revalidatePath("/grocery");
   return String(group._id);
 }
 
@@ -108,7 +108,7 @@ export async function addShoppingGroupMember(
   group.memberIds.push(uid);
   await group.save();
 
-  revalidatePath("/spesa");
+  revalidatePath("/grocery");
   return { success: true };
 }
 
@@ -127,7 +127,7 @@ export async function removeShoppingGroupMember(
   group.memberIds = group.memberIds.filter((id) => id !== userId);
   await group.save();
 
-  revalidatePath("/spesa");
+  revalidatePath("/grocery");
 }
 
 export async function deleteShoppingGroup(groupId: string): Promise<void> {
@@ -146,5 +146,5 @@ export async function deleteShoppingGroup(groupId: string): Promise<void> {
     ShoppingItem.deleteMany({ listId: { $in: listIds } }),
   ]);
 
-  revalidatePath("/spesa");
+  revalidatePath("/grocery");
 }

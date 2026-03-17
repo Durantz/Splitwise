@@ -129,7 +129,7 @@ export async function createShoppingList(
     createdBy: session.user.id,
   });
 
-  revalidatePath(`/spesa/${groupId}`);
+  revalidatePath(`/grocery/${groupId}`);
   return String(list._id);
 }
 
@@ -156,5 +156,5 @@ export async function deleteShoppingList(
     ShoppingItem.deleteMany({ listId: lId }),
   ]);
 
-  revalidatePath(`/spesa/${groupId}`);
+  revalidatePath(`/grocery/${groupId}`);
 }

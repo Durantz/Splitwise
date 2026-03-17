@@ -18,11 +18,12 @@ async function Content({
   return <ShoppingListView list={list} />;
 }
 
-export default function SpesaListPage({
+export default async function SpesaListPage({
   params,
 }: {
-  params: { groupId: string; listId: string };
+  params: Promise<{ groupId: string; listId: string }>;
 }) {
+  const { groupId, listId } = await params;
   return (
     <Suspense
       fallback={
@@ -31,7 +32,7 @@ export default function SpesaListPage({
         </Center>
       }
     >
-      <Content groupId={params.groupId} listId={params.listId} />
+      <Content groupId={groupId} listId={listId} />
     </Suspense>
   );
 }

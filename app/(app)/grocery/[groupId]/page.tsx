@@ -12,11 +12,12 @@ async function Content({ groupId }: { groupId: string }) {
   return <ShoppingGroupView group={group} />;
 }
 
-export default function SpesaGroupPage({
+export default async function SpesaGroupPage({
   params,
 }: {
-  params: { groupId: string };
+  params: Promise<{ groupId: string }>;
 }) {
+  const { groupId } = await params;
   return (
     <Suspense
       fallback={
@@ -25,7 +26,7 @@ export default function SpesaGroupPage({
         </Center>
       }
     >
-      <Content groupId={params.groupId} />
+      <Content groupId={groupId} />
     </Suspense>
   );
 }
