@@ -72,7 +72,7 @@ function GroupCard({
       <Paper p="md" withBorder>
         <Group justify="space-between" wrap="nowrap">
           <Link
-            href={`/spesa/${group.id}`}
+            href={`/grocery/${group.id}`}
             style={{
               flex: 1,
               minWidth: 0,
@@ -191,7 +191,7 @@ export function ShoppingHomeView({
       const groupId = await createShoppingGroup(name);
       closeModal();
       setNewGroupName("");
-      router.push(`/spesa/${groupId}`);
+      router.push(`/grocery/${groupId}`);
     });
   };
 

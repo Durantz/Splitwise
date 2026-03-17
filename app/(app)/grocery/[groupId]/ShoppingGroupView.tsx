@@ -58,7 +58,7 @@ function ListCard({
   return (
     <Paper
       component={Link}
-      href={`/spesa/${groupId}/${list.id}`}
+      href={`/grocery/${groupId}/${list.id}`}
       p="md"
       withBorder
       style={{
@@ -147,7 +147,7 @@ export function ShoppingGroupView({
       const listId = await createShoppingList(initialGroup.id, name);
       closeModal();
       setNewListName("");
-      router.push(`/spesa/${initialGroup.id}/${listId}`);
+      router.push(`/grocery/${initialGroup.id}/${listId}`);
     });
   };
 
@@ -159,7 +159,7 @@ export function ShoppingGroupView({
     <Stack maw={600} mx="auto" p="md" gap="lg">
       {/* Header */}
       <Stack gap={4}>
-        <Anchor component={Link} href="/spesa" size="xs" c="dimmed">
+        <Anchor component={Link} href="/grocery" size="xs" c="dimmed">
           ← Gruppi spesa
         </Anchor>
         <Group justify="space-between" align="center">

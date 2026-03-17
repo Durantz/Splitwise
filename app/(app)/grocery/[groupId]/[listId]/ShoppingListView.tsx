@@ -362,7 +362,7 @@ export function ShoppingListView({
       <Stack gap={4}>
         <Anchor
           component={Link}
-          href={`/spesa/${initialList.groupId}`}
+          href={`/grocery/${initialList.groupId}`}
           size="xs"
           c="dimmed"
         >
