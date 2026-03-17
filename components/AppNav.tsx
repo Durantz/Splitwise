@@ -37,7 +37,7 @@ const links = [
   { href: "/expenses", label: "Spese", icon: IconReceipt },
   { href: "/groups", label: "Gruppi", icon: IconUsers },
   { href: "/budget", label: "Budget", icon: IconChartBar }, // <- aggiungi
-  { href: "/spesa", label: "Spesa", icon: IconShoppingCart },
+  { href: "/grocery", label: "Spesa", icon: IconShoppingCart },
 ];
 export default function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
