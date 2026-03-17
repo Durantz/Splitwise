@@ -7,6 +7,7 @@ import { ShoppingGroup } from "@/lib/models/ShoppingGroup";
 import { ShoppingList } from "@/lib/models/ShoppingList";
 import { ShoppingItem } from "@/lib/models/ShoppingItem";
 import { ShoppingProduct } from "@/lib/models/ShoppingProduct";
+import { User } from "@/lib/models/User";
 import mongoose from "mongoose";
 
 // ------------------------------------------------------------------
@@ -58,7 +59,6 @@ export async function getShoppingListDetail(
   const list = await ShoppingList.findOne({ _id: lId, groupId: gId }).lean();
   if (!list) return null;
 
-  const { User } = await import("@/lib/models/User");
   const users = await User.find({ _id: { $in: group.memberIds } })
     .select("_id name image")
     .lean();

@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/session";
 import { ShoppingGroup } from "@/lib/models/ShoppingGroup";
 import { ShoppingList } from "@/lib/models/ShoppingList";
 import { ShoppingItem } from "@/lib/models/ShoppingItem";
+import { User } from "@/lib/models/User";
 import mongoose from "mongoose";
 
 // ------------------------------------------------------------------
@@ -49,8 +50,7 @@ export async function getShoppingGroupDetail(
   }).lean();
 
   if (!group) return null;
-
-  const { User } = await import("@/lib/models/User");
+  
   const users = await User.find({ _id: { $in: group.memberIds } })
     .select("_id name image")
     .lean();
