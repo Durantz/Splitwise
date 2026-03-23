@@ -26,6 +26,11 @@ export interface ShoppingItemDTO {
   addedBy: string;
 }
 
+export interface ProductSuggestion {
+  displayName: string;
+  displayNote: string;
+}
+
 export interface ShoppingListDetailDTO {
   id: string;
   name: string;
@@ -92,22 +97,29 @@ export async function getShoppingListDetail(
   };
 }
 
+export interface ProductSuggestion {
+  displayName: string;
+  displayNote: string; // stringa vuota se nessuna nota
+}
+
 export async function getProductSuggestions(
   groupId: string,
   query: string
-): Promise<string[]> {
+): Promise<ProductSuggestion[]> {
   await connectDB();
 
   const gId = new mongoose.Types.ObjectId(groupId);
   const normalized = query.toLowerCase().trim();
 
   if (!normalized) {
-    // Ritorna i più usati
     const top = await ShoppingProduct.find({ groupId: gId })
       .sort({ count: -1 })
       .limit(8)
       .lean();
-    return top.map((p) => p.displayName);
+    return top.map((p) => ({
+      displayName: p.displayName,
+      displayNote: p.displayNote ?? "",
+    }));
   }
 
   const products = await ShoppingProduct.find({
@@ -118,7 +130,10 @@ export async function getProductSuggestions(
     .limit(6)
     .lean();
 
-  return products.map((p) => p.displayName);
+  return products.map((p) => ({
+    displayName: p.displayName,
+    displayNote: p.displayNote ?? "",
+  }));
 }
 
 // ------------------------------------------------------------------
@@ -156,16 +171,20 @@ export async function addShoppingItem(
     addedBy: session.user.id,
   });
 
-  // Aggiorna storico prodotti (upsert per conteggio)
-  const normalized = data.name.toLowerCase().trim();
+  // Aggiorna storico prodotti — chiave composita (name, note)
+  // "latte" e "latte + Granarolo" sono voci separate
+  const normalizedName = data.name.toLowerCase().trim();
+  const normalizedNote = data.note.toLowerCase().trim();
   await ShoppingProduct.updateOne(
-    { groupId: gId, name: normalized },
+    { groupId: gId, name: normalizedName, note: normalizedNote },
     {
       $inc: { count: 1 },
       $setOnInsert: {
-        displayName: data.name.trim(),
         groupId: gId,
-        name: normalized,
+        name: normalizedName,
+        displayName: data.name.trim(),
+        note: normalizedNote,
+        displayNote: data.note.trim(),
       },
     },
     { upsert: true }

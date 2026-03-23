@@ -9,15 +9,14 @@ import {
   ActionIcon,
   TextInput,
   NumberInput,
+  Select,
   Badge,
   Paper,
   Button,
   Anchor,
-  Textarea,
   Collapse,
   Divider,
   Center,
-  Loader,
   Autocomplete,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -31,7 +30,11 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { notifications } from "@mantine/notifications";
-import type { ShoppingListDetailDTO, ShoppingItemDTO } from "./server";
+import type {
+  ShoppingListDetailDTO,
+  ShoppingItemDTO,
+  ProductSuggestion,
+} from "./server";
 import {
   addShoppingItem,
   toggleShoppingItem,
@@ -39,6 +42,73 @@ import {
   deleteShoppingItem,
   getProductSuggestions,
 } from "./server";
+
+// ------------------------------------------------------------------
+// Unità predefinite
+// ------------------------------------------------------------------
+const UNIT_OPTIONS = [
+  { value: "", label: "pz" },
+  { value: "g", label: "g" },
+  { value: "kg", label: "kg" },
+  { value: "ml", label: "ml" },
+  { value: "l", label: "l" },
+  { value: "pacco", label: "pacco" },
+  { value: "cf", label: "cf" },
+  { value: "__custom__", label: "altro…" },
+];
+
+function UnitSelect({
+  value,
+  onChange,
+  size = "sm",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  size?: "xs" | "sm";
+}) {
+  const knownValue = UNIT_OPTIONS.find(
+    (o) => o.value === value && o.value !== "__custom__"
+  );
+  const isCustom = value !== "" && !knownValue;
+  const [custom, setCustom] = useState(isCustom ? value : "");
+  const selectValue = isCustom ? "__custom__" : value;
+
+  const handleSelect = (val: string | null) => {
+    if (val === "__custom__") {
+      onChange(custom || "");
+    } else {
+      onChange(val ?? "");
+      setCustom("");
+    }
+  };
+
+  return (
+    <Group gap={4} wrap="nowrap">
+      <Select
+        data={UNIT_OPTIONS}
+        value={selectValue}
+        onChange={handleSelect}
+        size={size}
+        w={90}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
+      {selectValue === "__custom__" && (
+        <TextInput
+          size={size}
+          placeholder="es. bottiglie"
+          value={custom}
+          onChange={(e) => {
+            setCustom(e.currentTarget.value);
+            onChange(e.currentTarget.value);
+          }}
+          w={90}
+          autoFocus
+        />
+      )}
+    </Group>
+  );
+}
 
 // ------------------------------------------------------------------
 // Item singolo
@@ -72,7 +142,7 @@ function ShoppingItemRow({
   const handleToggle = () => {
     if (isCompleted) return;
     const next = !checked;
-    setChecked(next); // ottimistico
+    setChecked(next);
     startTransition(async () => {
       await toggleShoppingItem(groupId, listId, item.id);
     });
@@ -96,15 +166,20 @@ function ShoppingItemRow({
     });
   };
 
+  // Label quantità + unità da mostrare nella riga
+  const qtyLabel = (() => {
+    if (item.quantity === 1 && !item.unit) return null;
+    const unitLabel =
+      UNIT_OPTIONS.find((o) => o.value === item.unit)?.label ?? item.unit;
+    return item.unit ? `${item.quantity} ${unitLabel}` : `${item.quantity}`;
+  })();
+
   return (
     <Paper
       px="sm"
       py="xs"
       withBorder
-      style={{
-        opacity: checked ? 0.6 : 1,
-        transition: "opacity 150ms ease",
-      }}
+      style={{ opacity: checked ? 0.6 : 1, transition: "opacity 150ms ease" }}
     >
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap">
@@ -125,15 +200,15 @@ function ShoppingItemRow({
                 {item.name}
               </Text>
               <Group gap={4}>
-                {(item.quantity !== 1 || item.unit) && (
+                {qtyLabel && (
                   <Text size="xs" c="dimmed">
-                    {item.quantity}
-                    {item.unit ? ` ${item.unit}` : ""}
+                    {qtyLabel}
                   </Text>
                 )}
                 {item.note && (
                   <Text size="xs" c="dimmed" fs="italic" truncate>
-                    · {item.note}
+                    {qtyLabel ? "· " : ""}
+                    {item.note}
                   </Text>
                 )}
               </Group>
@@ -173,32 +248,26 @@ function ShoppingItemRow({
         {/* Form modifica inline */}
         <Collapse in={editing}>
           <Stack gap="xs" pt="xs" pl={34}>
-            <Group grow gap="xs">
+            <Group gap="xs" wrap="nowrap">
               <TextInput
                 size="xs"
-                placeholder="Nome"
+                placeholder="Nome prodotto"
                 value={editName}
                 onChange={(e) => setEditName(e.currentTarget.value)}
+                style={{ flex: 1 }}
               />
               <NumberInput
                 size="xs"
-                placeholder="Qtà"
                 value={editQty}
                 onChange={setEditQty}
                 min={0}
-                w={70}
+                w={60}
               />
-              <TextInput
-                size="xs"
-                placeholder="Unità"
-                value={editUnit}
-                onChange={(e) => setEditUnit(e.currentTarget.value)}
-                w={70}
-              />
+              <UnitSelect value={editUnit} onChange={setEditUnit} size="xs" />
             </Group>
             <TextInput
               size="xs"
-              placeholder="Note (es. marca)"
+              placeholder="Note (marca, variante…)"
               value={editNote}
               onChange={(e) => setEditNote(e.currentTarget.value)}
             />
@@ -244,18 +313,40 @@ function AddItemForm({
   const [qty, setQty] = useState<number | string>(1);
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Blocca il prossimo onChange quando la selezione arriva da onOptionSubmit
+  const skipNextChange = useRef(false);
 
-  // Carica suggerimenti iniziali
+  const loadSuggestions = async (query: string) => {
+    const results = await getProductSuggestions(groupId, query);
+    setSuggestions(results);
+  };
+
   useEffect(() => {
-    getProductSuggestions(groupId, "").then(setSuggestions);
+    loadSuggestions("");
   }, [groupId]);
 
   const handleNameChange = (val: string) => {
+    if (skipNextChange.current) {
+      skipNextChange.current = false;
+      return;
+    }
     setName(val);
-    getProductSuggestions(groupId, val).then(setSuggestions);
+    loadSuggestions(val);
+  };
+
+  // onOptionSubmit riceve la label completa "Latte — Granarolo"
+  // Estraiamo solo il nome, precompiliamo la nota, e blocchiamo
+  // il successivo onChange che Mantine scatena automaticamente
+  const handleOptionSubmit = (val: string) => {
+    const nameOnly = val.split(" — ")[0];
+    skipNextChange.current = true;
+    setName(nameOnly);
+    const match = suggestions.find((s) => s.displayName === nameOnly);
+    if (match?.displayNote) setNote(match.displayNote);
+    loadSuggestions(nameOnly);
   };
 
   const handleSubmit = () => {
@@ -283,20 +374,25 @@ function AddItemForm({
     });
   };
 
+  // Etichette per l'autocomplete: "Latte — Granarolo" oppure solo "Latte"
+  const autocompleteData = suggestions.map((s) =>
+    s.displayNote ? `${s.displayName} — ${s.displayNote}` : s.displayName
+  );
+
   return (
     <Paper p="sm" withBorder style={{ borderStyle: "dashed" }}>
       <Stack gap="xs">
-        <Group gap="xs" align="flex-end">
+        <Group gap="xs" align="flex-end" wrap="nowrap">
           <Autocomplete
             ref={inputRef}
-            placeholder="Aggiungi prodotto…"
+            placeholder="Prodotto…"
             value={name}
             onChange={handleNameChange}
-            onOptionSubmit={(val) => setName(val)}
-            data={suggestions}
+            onOptionSubmit={handleOptionSubmit}
+            data={autocompleteData}
             style={{ flex: 1 }}
             size="sm"
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            onKeyDown={(e) => e.key === "Enter" && !isPending && handleSubmit()}
           />
           <NumberInput
             placeholder="Qtà"
@@ -304,24 +400,18 @@ function AddItemForm({
             onChange={setQty}
             min={0}
             size="sm"
-            w={70}
+            w={65}
           />
-          <TextInput
-            placeholder="Unità"
-            value={unit}
-            onChange={(e) => setUnit(e.currentTarget.value)}
-            size="sm"
-            w={70}
-          />
+          <UnitSelect value={unit} onChange={setUnit} size="sm" />
         </Group>
         <Group gap="xs" align="flex-end">
           <TextInput
-            placeholder="Note (es. marca, variante…)"
+            placeholder="Marca o variante (es. Granarolo, senza glutine…)"
             value={note}
             onChange={(e) => setNote(e.currentTarget.value)}
             size="sm"
             style={{ flex: 1 }}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            onKeyDown={(e) => e.key === "Enter" && !isPending && handleSubmit()}
           />
           <Button
             size="sm"
@@ -353,7 +443,7 @@ export function ShoppingListView({
   const checked = items.filter((i) => i.checked);
 
   const handleAdded = (item: ShoppingItemDTO) => {
-    setItems((prev) => [item, ...prev]);
+    setItems((prev) => [...prev, item]);
   };
 
   return (
@@ -387,7 +477,6 @@ export function ShoppingListView({
         </Group>
       </Stack>
 
-      {/* Form aggiunta — solo se lista aperta */}
       {!isCompleted && (
         <AddItemForm
           groupId={initialList.groupId}
@@ -396,7 +485,6 @@ export function ShoppingListView({
         />
       )}
 
-      {/* Lista vuota */}
       {items.length === 0 && (
         <Center py={40}>
           <Stack align="center" gap="xs">
@@ -408,7 +496,6 @@ export function ShoppingListView({
         </Center>
       )}
 
-      {/* Prodotti da prendere */}
       {unchecked.length > 0 && (
         <Stack gap="xs">
           {unchecked.map((item) => (
@@ -424,7 +511,6 @@ export function ShoppingListView({
         </Stack>
       )}
 
-      {/* Divider se ci sono sia checked che unchecked */}
       {unchecked.length > 0 && checked.length > 0 && (
         <Divider
           label={
@@ -436,7 +522,6 @@ export function ShoppingListView({
         />
       )}
 
-      {/* Prodotti già presi */}
       {checked.length > 0 && (
         <Stack gap="xs">
           {checked.map((item) => (
